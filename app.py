@@ -3,220 +3,227 @@ import pandas as pd
 import numpy as np
 import pickle
 import os
-import time
 import plotly.express as px
 import plotly.graph_objects as go
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_curve, auc
 
-# Page configuration
+# Page configurations
 st.set_page_config(
-    page_title="Marine Engine Health & Multi-Model Diagnostics",
-    page_icon="🚢",
+    page_title="Marine Engine Predictive Maintenance System",
+    page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Fault Labels Definitions
+# Fault Definitions
 FAULT_CLASSES = {
     0: {
         "name": "Normal Operation",
-        "desc": "All engine systems are operating within standard parameters. No anomalies detected.",
-        "color": "#10B981", # Green
-        "severity": "Healthy"
+        "desc": "All systems operating within baseline parameters.",
+        "color": "#10b981", # Green
+        "severity": "Healthy",
+        "rec": "Continue nominal operations. Execute standard logbook entries. Scheduled maintenance in 250 hours."
     },
     1: {
         "name": "Fuel Delivery System Anomaly",
-        "desc": "Detected abnormal fuel flow rate relative to shaft speed and load. This could indicate a fuel line restriction, injector clog, or fuel pump failure.",
-        "color": "#EF4444", # Red
-        "severity": "Critical"
+        "desc": "Fuel flow rate is disproportionately high relative to shaft RPM and load.",
+        "color": "#ef4444", # Red
+        "severity": "Critical",
+        "rec": "Isolate fuel delivery line. Inspect fuel primary filter elements. Test injectors 1-4 for spray anomalies."
     },
     2: {
         "name": "Low Cylinder Compression Pressure",
-        "desc": "Detected low pressure levels across multiple cylinders. This indicates possible piston ring wear, valve leakage, or cylinder head gasket failure.",
-        "color": "#F59E0B", # Orange
-        "severity": "Warning"
+        "desc": "Pressure leakage detected across combustion chambers.",
+        "color": "#f59e0b", # Orange
+        "severity": "Warning",
+        "rec": "Schedule static compression test. Inspect inlet/exhaust valve clearances. Audit crankcase pressure."
     },
     3: {
         "name": "Combustion Heat / Exhaust Gas Anomaly",
-        "desc": "Abnormally high exhaust gas temperatures across cylinders. This points to cooling jacket fouling, exhaust manifold blockage, or late fuel injection timing.",
-        "color": "#F59E0B", # Orange
-        "severity": "Warning"
+        "desc": "Exhaust gas temperature profile exceeds safety thresholds.",
+        "color": "#f59e0b", # Orange
+        "severity": "Warning",
+        "rec": "Check cooling jacket water outlet temperature. Clean cooling path. Inspect exhaust manifold thermowells."
     },
     4: {
         "name": "Radial Engine Vibration Fault",
-        "desc": "Excessive vibration levels detected in the X and Y axes. Likely caused by shaft misalignment, unbalanced rotating masses, or damaged radial bearings.",
-        "color": "#EF4444", # Red
-        "severity": "Critical"
+        "desc": "Excessive displacement recorded in the X and Y axes.",
+        "color": "#ef4444", # Red
+        "severity": "Critical",
+        "rec": "Halt engine if vibration exceeds safety RMS. Perform coupling laser alignment. Check engine mounts."
     },
     5: {
         "name": "Lubrication System Thermal Anomaly",
-        "desc": "High oil temperature paired with declining oil pressure. Indicates lubricant degradation, oil cooler failure, or bearing wear.",
-        "color": "#EF4444", # Red
-        "severity": "Critical"
+        "desc": "High sump oil temperature coupled with declining feed line pressure.",
+        "color": "#ef4444", # Red
+        "severity": "Critical",
+        "rec": "Verify oil cooler cooling water flow. Sample lube oil for viscosity check. Inspect regulation valves."
     },
     6: {
         "name": "Air Intake Pressure / Turbocharger Fault",
-        "desc": "Abnormally low air intake pressure. Suggests a turbocharger wastegate leak, compressor fouling, or intake manifold leakage.",
-        "color": "#EF4444", # Red
-        "severity": "Critical"
+        "desc": "Boost air pressure drops significantly under engine load.",
+        "color": "#ef4444", # Red
+        "severity": "Critical",
+        "rec": "Inspect turbocharger rotor shaft for play. Inspect intake filter differential pressure."
     },
     7: {
         "name": "Lubrication Pressure & Axial Vibration Fault",
-        "desc": "Low oil pressure accompanied by high vibration in the Z (axial) direction. Suggests a failing thrust bearing or crankshaft thrust collar issues.",
-        "color": "#EF4444", # Red
-        "severity": "Critical"
+        "desc": "Severe drop in oil pressure accompanied by high vibration in the Z (axial) direction.",
+        "color": "#ef4444", # Red
+        "severity": "Critical",
+        "rec": "Shut down engine immediately. Conduct crankcase sump inspection for metal shavings. Audit thrust collar."
     }
 }
 
-# Custom Premium CSS Styling
+# Custom Styling (Dark Navy Background with Clean Contrast White Cards)
 st.markdown("""
 <style>
-    /* Premium Grid CSS styling */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;750;800&display=swap');
+
+    /* Global setting */
     .stApp {
-        background: radial-gradient(circle at 50% 50%, #0d131f 0%, #030712 100%);
-        color: #f3f4f6;
+        background: radial-gradient(circle at 50% 50%, #0a1128 0%, #030712 100%) !important;
+        color: #f3f4f6 !important;
+        font-family: 'Inter', sans-serif;
     }
     
-    /* Table contrast styling */
-    table {
-        color: #e6edf3 !important;
-        background-color: #111827 !important;
-        border-collapse: collapse;
-        border-radius: 8px;
-        overflow: hidden;
+    /* Adjust Streamlit padding to prevent header clipping */
+    .block-container {
+        padding-top: 4.5rem !important;
+        padding-bottom: 2rem !important;
     }
-    th {
-        color: #60a5fa !important;
-        background-color: #1f2937 !important;
-        font-weight: 700 !important;
-        padding: 10px !important;
+    /* Header layout */
+    .header-container {
+        margin-bottom: 2rem;
     }
-    td {
-        color: #d1d5db !important;
-        padding: 8px !important;
-    }
-    tr:nth-child(even) {
-        background-color: #1f2937 !important;
-    }
-    
-    /* Title styling with glowing text */
     .main-title {
-        background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #1d4ed8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2.6rem;
+        font-family: 'Inter', sans-serif !important;
+        color: #38bdf8;
+        font-size: 2.0rem;
         font-weight: 800;
-        margin-bottom: 0.1rem;
-        text-shadow: 0 0 30px rgba(59, 130, 246, 0.15);
+        line-height: 1.3;
+        margin-bottom: 0.2rem;
+        word-wrap: break-word;
     }
-    
-    .subtitle {
-        color: #9ca3af;
-        font-size: 1rem;
+    .main-subtitle {
+        color: #94a3b8;
+        font-size: 1.05rem;
+        font-weight: 400;
         margin-bottom: 1.5rem;
     }
-    
-    /* Glowing metric card */
-    .metric-card {
-        background: rgba(17, 24, 39, 0.7);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        padding: 1.3rem;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .metric-card:hover {
-        transform: translateY(-4px);
-        border-color: #3b82f6;
-        box-shadow: 0 12px 40px 0 rgba(59, 130, 246, 0.2);
-    }
-    
-    .metric-label {
-        font-size: 0.8rem;
-        color: #9ca3af;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-    
-    .metric-value {
-        font-size: 1.6rem;
-        font-weight: 800;
-        color: #ffffff;
-        margin-top: 0.35rem;
-    }
-    
-    .metric-desc {
-        font-size: 0.75rem;
-        color: #60a5fa;
-        margin-top: 0.35rem;
-    }
 
-    /* Diagnosis result card with glassmorphism */
-    .diag-card {
-        background: rgba(17, 24, 39, 0.75);
-        backdrop-filter: blur(16px);
-        border-radius: 16px;
-        padding: 1.6rem;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    /* White Cards style */
+    .white-card {
+        background-color: #ffffff !important;
+        color: #1f2937 !important;
+        border-radius: 12px !important;
+        padding: 1.4rem !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+        border: 1px solid #e5e7eb !important;
+        margin-bottom: 1rem !important;
+        transition: transform 0.2s ease-in-out;
     }
-    
-    .feature-group-header {
-        color: #60a5fa;
-        font-size: 1.15rem;
-        font-weight: 700;
-        border-bottom: 2px solid rgba(59, 130, 246, 0.2);
-        padding-bottom: 0.4rem;
-        margin-top: 1.4rem;
-        margin-bottom: 0.7rem;
-        letter-spacing: 0.02em;
-    }
-    
-    /* Sidebar styling */
-    .nav-header {
-        font-size: 0.85rem;
-        color: #9ca3af;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 12px;
-        margin-top: 15px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        padding-bottom: 4px;
-    }
-    
-    /* Custom Streamlit Button Styling */
-    div.stButton > button {
-        background: rgba(31, 41, 55, 0.7) !important;
-        color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-radius: 8px !important;
-        padding: 0.5rem 1.2rem !important;
-        font-weight: 600 !important;
-        width: 100%;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-        text-align: center;
-    }
-    div.stButton > button:hover {
-        background: #1e40af !important;
-        color: #ffffff !important;
-        border-color: #3b82f6 !important;
-        box-shadow: 0 0 18px rgba(59, 130, 246, 0.4) !important;
+    .white-card:hover {
         transform: translateY(-2px);
     }
-    div.stButton > button:active {
-        transform: translateY(0);
+    .white-card h3 {
+        margin-top: 0 !important;
+        color: #4b5563 !important;
+        font-size: 0.9rem !important;
+        font-weight: 750 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+    }
+    .white-card p.card-value {
+        color: #111827 !important;
+        font-size: 1.8rem !important;
+        font-weight: 800 !important;
+        margin: 0.4rem 0 0 0 !important;
+    }
+    .white-card p.card-desc {
+        color: #6b7280 !important;
+        font-size: 0.82rem !important;
+        margin: 0.4rem 0 0 0 !important;
+        font-weight: 500 !important;
+    }
+
+    /* Workflow layout */
+    .workflow-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 2rem;
+        margin-bottom: 2rem;
+        width: 100%;
+    }
+    .workflow-step {
+        background-color: #ffffff;
+        color: #1f2937;
+        border-radius: 12px;
+        padding: 1.2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e7eb;
+        text-align: center;
+        width: 22%;
+        min-height: 110px;
+    }
+    .workflow-step h4 {
+        margin: 0.4rem 0;
+        color: #111827;
+        font-size: 1rem;
+        font-weight: 750;
+    }
+    .workflow-step p {
+        margin: 0;
+        color: #6b7280;
+        font-size: 0.8rem;
+        line-height: 1.3;
+    }
+    .workflow-arrow {
+        font-size: 1.8rem;
+        color: #38bdf8;
+        font-weight: bold;
+    }
+
+    /* Form styling and buttons */
+    div.stButton > button {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 0.7rem 1.5rem !important;
+        font-weight: 700 !important;
+        width: 100% !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    div.stButton > button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4) !important;
+    }
+
+    /* Subsections and subheaders */
+    .section-header {
+        font-size: 1.4rem;
+        font-weight: 750;
+        color: #ffffff;
+        margin-top: 1.5rem;
+        margin-bottom: 0.8rem;
+        border-left: 4px solid #38bdf8;
+        padding-left: 0.6rem;
+    }
+    
+    /* Preset selectors */
+    .stSelectbox label, .stSlider label {
+        color: #cbd5e1 !important;
+        font-weight: 500 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Load all models, scaler, and metrics
+# Load model and scalar assets
 @st.cache_resource
-def load_all_assets():
+def load_ml_assets():
     model_files = {
         'logistic_regression': 'logistic_model.pkl',
         'random_forest': 'random_forest_model.pkl',
@@ -230,913 +237,696 @@ def load_all_assets():
     
     scaler = None
     if os.path.exists(scaler_path):
-        try:
-            with open(scaler_path, "rb") as f:
-                scaler = pickle.load(f)
-        except Exception as e:
-            st.error(f"Error loading scaler: {e}")
+        with open(scaler_path, "rb") as f:
+            scaler = pickle.load(f)
             
     models = {}
     for key, filename in model_files.items():
         if os.path.exists(filename):
-            try:
-                with open(filename, "rb") as f:
-                    models[key] = pickle.load(f)
-            except Exception as e:
-                st.error(f"Error loading model {key}: {e}")
+            with open(filename, "rb") as f:
+                models[key] = pickle.load(f)
                 
     metrics = None
     if os.path.exists(metrics_path):
-        try:
-            with open(metrics_path, "rb") as f:
-                metrics = pickle.load(f)
-        except Exception as e:
-            st.error(f"Error loading metrics: {e}")
+        with open(metrics_path, "rb") as f:
+            metrics = pickle.load(f)
             
     return models, scaler, metrics
 
-models, scaler, metrics_payload = load_all_assets()
+models, scaler, metrics_payload = load_ml_assets()
 
-# Preset loader function
-def load_preset(preset_name):
-    stats = get_dataset_stats()
-    # Reset all to healthy first
-    for col, limits in stats.items():
-        st.session_state[f"slider_{col}"] = limits[2]
-        
-    if preset_name == "healthy":
-        st.session_state['preset_message'] = ("healthy", "🟢 Normal Operation parameters loaded successfully!")
-    elif preset_name == "fuel":
-        st.session_state['slider_Fuel_Flow'] = stats['Fuel_Flow'][1] * 0.90
-        st.session_state['slider_Engine_Load'] = stats['Engine_Load'][0] + 5.0
-        st.session_state['preset_message'] = ("warning", "🔴 Fuel Delivery Anomaly parameters loaded! Fuel flow is elevated relative to load.")
-    elif preset_name == "compression":
-        st.session_state['slider_Cylinder1_Pressure'] = stats['Cylinder1_Pressure'][0] + 5.0
-        st.session_state['slider_Cylinder2_Pressure'] = stats['Cylinder2_Pressure'][0] + 5.0
-        st.session_state['slider_Cylinder3_Pressure'] = stats['Cylinder3_Pressure'][0] + 5.0
-        st.session_state['slider_Cylinder4_Pressure'] = stats['Cylinder4_Pressure'][0] + 5.0
-        st.session_state['preset_message'] = ("warning", "🔴 Low Compression pressure parameters loaded across cylinders.")
-    elif preset_name == "exhaust":
-        st.session_state['slider_Cylinder1_Exhaust_Temp'] = stats['Cylinder1_Exhaust_Temp'][1] * 0.90
-        st.session_state['slider_Cylinder2_Exhaust_Temp'] = stats['Cylinder2_Exhaust_Temp'][1] * 0.90
-        st.session_state['slider_Cylinder3_Exhaust_Temp'] = stats['Cylinder3_Exhaust_Temp'][1] * 0.90
-        st.session_state['slider_Cylinder4_Exhaust_Temp'] = stats['Cylinder4_Exhaust_Temp'][1] * 0.90
-        st.session_state['preset_message'] = ("warning", "🔴 High Exhaust Gas Temperature parameters loaded across cylinders.")
-    elif preset_name == "vibration":
-        st.session_state['slider_Vibration_X'] = stats['Vibration_X'][1] * 0.85
-        st.session_state['slider_Vibration_Y'] = stats['Vibration_Y'][1] * 0.85
-        st.session_state['preset_message'] = ("warning", "🔴 Radial Vibration anomaly loaded! Vibration in X/Y axes is elevated.")
-    elif preset_name == "lube_thermal":
-        st.session_state['slider_Oil_Temp'] = stats['Oil_Temp'][1] * 0.90
-        st.session_state['slider_Oil_Pressure'] = stats['Oil_Pressure'][0] + 0.2
-        st.session_state['preset_message'] = ("warning", "🔴 Lubrication Thermal Runaway parameters loaded! High oil temperature paired with low pressure.")
-    elif preset_name == "turbo":
-        st.session_state['slider_Air_Pressure'] = stats['Air_Pressure'][0] + 0.1
-        st.session_state['preset_message'] = ("warning", "🔴 Air Intake Pressure anomaly loaded! Turbocharger boost pressure is abnormally low.")
-    elif preset_name == "lube_axial":
-        st.session_state['slider_Oil_Pressure'] = stats['Oil_Pressure'][0] + 0.2
-        st.session_state['slider_Vibration_Z'] = stats['Vibration_Z'][1] * 0.85
-        st.session_state['preset_message'] = ("warning", "🔴 Lubrication Pressure & Axial Vibration anomaly loaded! Thrust collar/bearing friction elevated.")
+# Feature Column Definitions
+feature_cols = [
+    'Shaft_RPM', 'Engine_Load', 'Fuel_Flow', 'Air_Pressure', 'Ambient_Temp', 'Oil_Temp', 'Oil_Pressure',
+    'Vibration_X', 'Vibration_Y', 'Vibration_Z', 'Cylinder1_Pressure', 'Cylinder1_Exhaust_Temp',
+    'Cylinder2_Pressure', 'Cylinder2_Exhaust_Temp', 'Cylinder3_Pressure', 'Cylinder3_Exhaust_Temp',
+    'Cylinder4_Pressure', 'Cylinder4_Exhaust_Temp'
+]
 
-
-# Load dataset for statistics
-@st.cache_data
-def get_dataset_stats():
-    csv_path = "marine_engine_fault_dataset (1).csv"
-    if not os.path.exists(csv_path):
-        # Fallback values
-        return {
-            'Shaft_RPM': (750.0, 1150.0, 960.0),
-            'Engine_Load': (25.0, 110.0, 75.0),
-            'Fuel_Flow': (60.0, 190.0, 130.0),
-            'Air_Pressure': (0.3, 1.6, 1.15),
-            'Ambient_Temp': (15.0, 40.0, 27.0),
-            'Oil_Temp': (60.0, 115.0, 78.0),
-            'Oil_Pressure': (0.4, 5.2, 3.4),
-            'Vibration_X': (0.0, 0.5, 0.06),
-            'Vibration_Y': (0.0, 0.5, 0.05),
-            'Vibration_Z': (0.0, 0.6, 0.07),
-            'Cylinder1_Pressure': (85.0, 190.0, 145.0),
-            'Cylinder1_Exhaust_Temp': (290.0, 620.0, 420.0),
-            'Cylinder2_Pressure': (90.0, 190.0, 145.0),
-            'Cylinder2_Exhaust_Temp': (310.0, 600.0, 420.0),
-            'Cylinder3_Pressure': (85.0, 190.0, 145.0),
-            'Cylinder3_Exhaust_Temp': (300.0, 610.0, 420.0),
-            'Cylinder4_Pressure': (85.0, 190.0, 145.0),
-            'Cylinder4_Exhaust_Temp': (310.0, 620.0, 420.0),
-        }
-    
-    try:
-        df = pd.read_csv(csv_path)
-        df = df.dropna().drop_duplicates()
-        
-        stats = {}
-        feature_cols = [col for col in df.columns if col not in ['Timestamp', 'Fault_Label']]
-        
-        # Median of healthy class (Fault_Label == 0)
-        healthy_df = df[df['Fault_Label'] == 0]
-        
-        for col in feature_cols:
-            col_min = float(df[col].min())
-            col_max = float(df[col].max())
-            # Add padding buffers to sliders
-            col_min_buf = max(0.0, col_min - (col_max - col_min) * 0.05) if 'Vibration' in col else max(0.0, col_min - (col_max - col_min) * 0.1)
-            col_max_buf = col_max + (col_max - col_min) * 0.1
+# Initialize Session State values for 18 features
+def init_session_state():
+    defaults = {
+        'Shaft_RPM': 960.0,
+        'Engine_Load': 75.0,
+        'Fuel_Flow': 130.0,
+        'Air_Pressure': 1.15,
+        'Ambient_Temp': 27.0,
+        'Oil_Temp': 78.0,
+        'Oil_Pressure': 3.4,
+        'Vibration_X': 0.06,
+        'Vibration_Y': 0.05,
+        'Vibration_Z': 0.07,
+        'Cylinder1_Pressure': 145.0,
+        'Cylinder1_Exhaust_Temp': 420.0,
+        'Cylinder2_Pressure': 145.0,
+        'Cylinder2_Exhaust_Temp': 420.0,
+        'Cylinder3_Pressure': 145.0,
+        'Cylinder3_Exhaust_Temp': 420.0,
+        'Cylinder4_Pressure': 145.0,
+        'Cylinder4_Exhaust_Temp': 420.0,
+    }
+    for k, v in defaults.items():
+        if f"input_{k}" not in st.session_state:
+            st.session_state[f"input_{k}"] = v
             
-            default_val = float(healthy_df[col].median() if len(healthy_df) > 0 else df[col].median())
-            stats[col] = (round(col_min_buf, 2), round(col_max_buf, 2), round(default_val, 2))
-            
-        return stats
-    except Exception as e:
-        st.warning(f"Error loading stats from CSV, using fallbacks: {e}")
-        return get_dataset_stats.__wrapped__()
+    if 'latest_pred' not in st.session_state:
+        st.session_state['latest_pred'] = 0
+    if 'latest_conf' not in st.session_state:
+        st.session_state['latest_conf'] = 0.985
+    if 'latest_health' not in st.session_state:
+        st.session_state['latest_health'] = 98.2
+    if 'predicted_clicked' not in st.session_state:
+        st.session_state['predicted_clicked'] = False
 
-# Training function triggerable from UI
-def trigger_training():
-    with st.spinner("🔄 Preprocessing dataset & training all 6 classifiers..."):
-        try:
-            import subprocess
-            res = subprocess.run(["python", "train_model.py"], capture_output=True, text=True)
-            if res.returncode == 0:
-                st.success("🎉 All 6 models retrained and metrics generated successfully!")
-                st.cache_resource.clear()
-                st.rerun()
-            else:
-                st.error(f"Training failed:\n{res.stderr}")
-        except Exception as e:
-            st.error(f"Failed to launch training script: {e}")
+init_session_state()
 
-# Sidebar Header
-st.sidebar.markdown("<div class='nav-header'>🚢 Diagnostics Hub</div>", unsafe_allow_html=True)
-app_mode = st.sidebar.radio(
-    "Select Workstation",
-    ["📖 Project Info & Documentation", "📊 Model Comparison & Analytics", "🔍 Single Engine Diagnostics", "📁 Batch File Diagnostics"]
-)
+# Presets loading logic
+def load_preset(scenario_name):
+    st.session_state['predicted_clicked'] = False
+    if scenario_name == "Normal Operation":
+        st.session_state['input_Shaft_RPM'] = 960.0
+        st.session_state['input_Engine_Load'] = 75.0
+        st.session_state['input_Fuel_Flow'] = 130.0
+        st.session_state['input_Air_Pressure'] = 1.15
+        st.session_state['input_Ambient_Temp'] = 27.0
+        st.session_state['input_Oil_Temp'] = 78.0
+        st.session_state['input_Oil_Pressure'] = 3.4
+        st.session_state['input_Vibration_X'] = 0.06
+        st.session_state['input_Vibration_Y'] = 0.05
+        st.session_state['input_Vibration_Z'] = 0.07
+        st.session_state['input_Cylinder1_Pressure'] = 145.0
+        st.session_state['input_Cylinder1_Exhaust_Temp'] = 420.0
+        st.session_state['input_Cylinder2_Pressure'] = 145.0
+        st.session_state['input_Cylinder2_Exhaust_Temp'] = 420.0
+        st.session_state['input_Cylinder3_Pressure'] = 145.0
+        st.session_state['input_Cylinder3_Exhaust_Temp'] = 420.0
+        st.session_state['input_Cylinder4_Pressure'] = 145.0
+        st.session_state['input_Cylinder4_Exhaust_Temp'] = 420.0
+    elif scenario_name == "Fuel Delivery System Anomaly":
+        st.session_state['input_Fuel_Flow'] = 188.0
+        st.session_state['input_Engine_Load'] = 45.0
+        st.session_state['input_Shaft_RPM'] = 820.0
+    elif scenario_name == "Low Cylinder Compression Pressure":
+        st.session_state['input_Cylinder1_Pressure'] = 90.0
+        st.session_state['input_Cylinder2_Pressure'] = 93.0
+        st.session_state['input_Cylinder3_Pressure'] = 89.0
+        st.session_state['input_Cylinder4_Pressure'] = 91.0
+    elif scenario_name == "Combustion Heat / Exhaust Gas Anomaly":
+        st.session_state['input_Cylinder1_Exhaust_Temp'] = 590.0
+        st.session_state['input_Cylinder2_Exhaust_Temp'] = 585.0
+        st.session_state['input_Cylinder3_Exhaust_Temp'] = 580.0
+        st.session_state['input_Cylinder4_Exhaust_Temp'] = 595.0
+    elif scenario_name == "Radial Engine Vibration Fault":
+        st.session_state['input_Vibration_X'] = 0.46
+        st.session_state['input_Vibration_Y'] = 0.43
+    elif scenario_name == "Lubrication System Thermal Anomaly":
+        st.session_state['input_Oil_Temp'] = 114.0
+        st.session_state['input_Oil_Pressure'] = 0.7
+    elif scenario_name == "Air Intake Pressure / Turbocharger Fault":
+        st.session_state['input_Air_Pressure'] = 0.42
+        st.session_state['input_Engine_Load'] = 98.0
+    elif scenario_name == "Lubrication Pressure & Axial Vibration Fault":
+        st.session_state['input_Oil_Pressure'] = 0.55
+        st.session_state['input_Vibration_Z'] = 0.54
 
-# Active Model Selector
-st.sidebar.markdown("<div class='nav-header'>🤖 Predictive Model</div>", unsafe_allow_html=True)
-model_options = {
-    'logistic_regression': 'Logistic Regression (Baseline)',
-    'random_forest': 'Random Forest Classifier',
-    'xgboost': 'XGBoost Classifier',
-    'decision_tree': 'Decision Tree Classifier',
-    'svm': 'Support Vector Machine (SVM)',
-    'knn': 'K-Nearest Neighbors (KNN)'
-}
-selected_model_key = st.sidebar.selectbox(
-    "Active Classifier",
-    options=list(model_options.keys()),
-    format_func=lambda x: model_options[x]
-)
-
-# Header Section
-st.markdown("<div class='main-title'>Marine Engine Diagnostics</div>", unsafe_allow_html=True)
-st.markdown(f"<div class='subtitle'>Predicting engine anomalies and fault classifications using 6 ML models | Active: <strong>{model_options[selected_model_key]}</strong></div>", unsafe_allow_html=True)
-
-# Check if model weights exist
-missing_weights = not models or len(models) < 6 or scaler is None or metrics_payload is None
-if missing_weights:
-    st.warning("⚠️ Some model weight files (`.pkl`) or performance metrics were not detected in the workspace.")
-    st.info("You can trigger the training script directly below to train all 6 classifiers and generate evaluation metrics.")
-    if st.button("🚀 Train & Generate All Model Weights"):
-        trigger_training()
-    st.stop()
-
-# Set current active model
-model = models[selected_model_key]
-
-# Load stats
-stats_dict = get_dataset_stats()
-
-# ----------------- TAB 0: PROJECT INFO & DOCUMENTATION -----------------
-if app_mode == "📖 Project Info & Documentation":
-    st.markdown("### 📖 Project Information & Documentation")
-    st.write("Welcome to the **Marine Engine Health & Fault Diagnostics Hub**. This system utilizes a machine learning classifier to interpret engine sensor telemetry and identify operational anomalies.")
-    
-    col_docs_1, col_docs_2 = st.columns([3, 2])
-    
-    with col_docs_1:
-        st.markdown("#### 🎯 Project Objective & Scope")
-        st.write("""
-        This project implements a predictive maintenance framework for commercial shipping vessel engines. 
-        By continuously feeding telemetry data from 18 physical sensor checkpoints into a machine learning model, the crew can catch critical faults (like low cylinder compression, fuel delivery problems, lubrication thermal runaways, or excessive vibration) before they escalate into catastrophic mechanical failures.
-        """)
-        
-        st.markdown("#### 🧠 Multi-Model Diagnostics Pipeline")
-        st.write("""
-        - **Data Scaler**: Inputs are standardized using a pre-fit `StandardScaler` (mean=0, variance=1) before being processed by any model.
-        - **Algorithms Integrated**:
-          1. **Logistic Regression** (L2 Regularized) - Serves as an interpretable statistical baseline.
-          2. **Random Forest Classifier** - Robust bagging ensemble model.
-          3. **XGBoost Classifier** - High-accuracy gradient boosted trees classifier.
-          4. **Decision Tree Classifier** - Quick, rule-based hierarchical classifier.
-          5. **Support Vector Machine (SVM)** - RBF kernel distance-based classifier.
-          6. **K-Nearest Neighbors (KNN)** - Instance-based local classifier (k=5).
-        """)
-        
-    with col_docs_2:
-        st.markdown("#### 🚢 Engine System Diagram")
-        st.info("📊 **Sensors Monitored**: RPM, Load, Fuel Flow, Manifold Air Pressure, Ambient Temperature, Lube Oil Temperature, Lube Oil Pressure, 3-Axis Vibration (X/Y/Z), and individual compression & exhaust temperatures for all 4 cylinders.")
-        
-    st.write("")
-    
-    # Sensors table
-    st.markdown("#### ⚙️ Feature Matrix: Engine Telemetry Sensors (18 Features)")
-    st.write("These variables represent the physical indicators measured continuously from the engine:")
-    
-    features_table_data = [
-        {"Sensor Variable": "Shaft_RPM", "Unit": "RPM", "Category": "Mechanical Operation", "Description": "Rotational speed of the primary engine drive shaft. Used as baseline speed for fuel/load diagnostics."},
-        {"Sensor Variable": "Engine_Load", "Unit": "%", "Category": "Mechanical Operation", "Description": "Current load demands placed on the engine relative to its maximum capacity."},
-        {"Sensor Variable": "Fuel_Flow", "Unit": "L/h", "Category": "Fuel Delivery", "Description": "Rate of fuel supplied to the combustion chambers. Key indicator of fuel feed problems."},
-        {"Sensor Variable": "Air_Pressure", "Unit": "bar", "Category": "Intake & Combustion", "Description": "Manifold boost air pressure delivered to cylinders. Used to detect turbocharger anomalies."},
-        {"Sensor Variable": "Ambient_Temp", "Unit": "°C", "Category": "Environmental", "Description": "Environmental air temperature surrounding the engine compartment."},
-        {"Sensor Variable": "Oil_Temp", "Unit": "°C", "Category": "Lubrication System", "Description": "Temperature of the lube oil in the sump. Increases heavily during high-friction anomaly states."},
-        {"Sensor Variable": "Oil_Pressure", "Unit": "bar", "Category": "Lubrication System", "Description": "Feed oil pressure delivered to the crankshaft journals and bearings."},
-        {"Sensor Variable": "Vibration_X", "Unit": "g", "Category": "Mechanical Vibration", "Description": "Engine block vibration along the lateral radial axis."},
-        {"Sensor Variable": "Vibration_Y", "Unit": "g", "Category": "Mechanical Vibration", "Description": "Engine block vibration along the vertical radial axis."},
-        {"Sensor Variable": "Vibration_Z", "Unit": "g", "Category": "Mechanical Vibration", "Description": "Engine block vibration along the longitudinal axial axis."},
-        {"Sensor Variable": "Cylinder1_Pressure", "Unit": "bar", "Category": "Cylinder Compression", "Description": "Peak compression pressure inside Cylinder 1 during combustion."},
-        {"Sensor Variable": "Cylinder1_Exhaust_Temp", "Unit": "°C", "Category": "Cylinder Exhaust", "Description": "Temperature of the exhaust gases leaving Cylinder 1."},
-        {"Sensor Variable": "Cylinder2_Pressure", "Unit": "bar", "Category": "Cylinder Compression", "Description": "Peak compression pressure inside Cylinder 2 during combustion."},
-        {"Sensor Variable": "Cylinder2_Exhaust_Temp", "Unit": "°C", "Category": "Cylinder Exhaust", "Description": "Temperature of the exhaust gases leaving Cylinder 2."},
-        {"Sensor Variable": "Cylinder3_Pressure", "Unit": "bar", "Category": "Cylinder Compression", "Description": "Peak compression pressure inside Cylinder 3 during combustion."},
-        {"Sensor Variable": "Cylinder3_Exhaust_Temp", "Unit": "°C", "Category": "Cylinder Exhaust", "Description": "Temperature of the exhaust gases leaving Cylinder 3."},
-        {"Sensor Variable": "Cylinder4_Pressure", "Unit": "bar", "Category": "Cylinder Compression", "Description": "Peak compression pressure inside Cylinder 4 during combustion."},
-        {"Sensor Variable": "Cylinder4_Exhaust_Temp", "Unit": "°C", "Category": "Cylinder Exhaust", "Description": "Temperature of the exhaust gases leaving Cylinder 4."}
+# Sidebar Navigation Panel
+st.sidebar.title("🚢 Marine Maintenance")
+page_selection = st.sidebar.radio(
+    "Navigation Console",
+    [
+        "🏠 Dashboard",
+        "🔍 Prediction",
+        "📊 Model Performance",
+        "ℹ About Project"
     ]
-    st.table(pd.DataFrame(features_table_data))
+)
+
+# Render Pages
+if page_selection == "🏠 Dashboard":
+    # ------------------ HOME PAGE ------------------
+    st.markdown("<div class='main-title'>⚓ Marine Engine Predictive Maintenance System</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-subtitle'>AI-Based Fault Detection and Engine Health Monitoring</div>", unsafe_allow_html=True)
     
-    st.write("")
+    col_h1, col_h2 = st.columns([7, 3])
     
-    # Faults table
-    st.markdown("#### 🚨 Target Matrix: Diagnostic Classifications & Associated Symptoms (8 Classes)")
-    st.write("Based on regression coefficients and dataset statistics, the 8 classes represent the following operational conditions:")
-    
-    faults_table_data = []
-    for label, info in FAULT_CLASSES.items():
-        faults_table_data.append({
-            "Label ID": label,
-            "Diagnostic Name": info["name"],
-            "Severity": info["severity"],
-            "Description": info["desc"]
-        })
-    st.table(pd.DataFrame(faults_table_data))
-
-# ----------------- TAB 1: MODEL COMPARISON & ANALYTICS -----------------
-elif app_mode == "📊 Model Comparison & Analytics":
-    st.markdown("### 📊 Model Comparison & Performance Analytics")
-    
-    if metrics_payload and 'metrics' in metrics_payload:
-        metrics_dict = metrics_payload['metrics']
+    with col_h1:
         
-        # Calculate best model and statistics
-        best_acc_model = max(metrics_dict.items(), key=lambda x: x[1]['accuracy'])
-        fastest_inf_model = min(metrics_dict.items(), key=lambda x: x[1]['inference_time_ms_per_sample'])
+        # Latest states derived from st.session_state
+        pred_label = st.session_state['latest_pred']
+        fault_info = FAULT_CLASSES[pred_label]
+        status_color = fault_info['color']
+        severity_label = fault_info['severity']
+        health_score = st.session_state['latest_health']
         
-        # KPI Row
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.markdown(f"""
-            <div class='metric-card'>
-                <div class='metric-label'>Top Model (Accuracy)</div>
-                <div class='metric-value'>{best_acc_model[1]['name']}</div>
-                <div class='metric-desc'>Validation Accuracy: {best_acc_model[1]['accuracy']:.2%}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div class='metric-card'>
-                <div class='metric-label'>Fastest Inference</div>
-                <div class='metric-value'>{fastest_inf_model[1]['name']}</div>
-                <div class='metric-desc'>Latency: {fastest_inf_model[1]['inference_time_ms_per_sample']:.4f} ms/sample</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col3:
-            st.markdown("""
-            <div class='metric-card'>
-                <div class='metric-label'>Total Classifiers</div>
-                <div class='metric-value'>6 Models</div>
-                <div class='metric-desc'>Trained & validated on dataset</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col4:
-            st.markdown("""
-            <div class='metric-card'>
-                <div class='metric-label'>Telemetry Sensors</div>
-                <div class='metric-value'>18 Physical Features</div>
-                <div class='metric-desc'>Scaled input values</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        st.write("")
+        # Indicator tag circles
+        status_icon = "🟢" if severity_label == "Healthy" else ("🟠" if severity_label == "Warning" else "🔴")
         
-        # Overall Performance Chart (Accuracy, Precision, Recall, F1)
-        st.markdown("#### 🔬 Model Metric Comparison")
-        st.write("Comparison of key metrics across the 6 classifiers evaluated on the test set split.")
-        
-        comparison_data = []
-        for key, m_data in metrics_dict.items():
-            rep = m_data['report']
-            # Get macro averages
-            precision = rep['macro avg']['precision']
-            recall = rep['macro avg']['recall']
-            f1 = rep['macro avg']['f1-score']
-            accuracy = m_data['accuracy']
-            
-            comparison_data.append({
-                'Model': m_data['name'],
-                'Accuracy': accuracy,
-                'Precision (Macro)': precision,
-                'Recall (Macro)': recall,
-                'F1-Score (Macro)': f1,
-                'Inference Speed (ms)': m_data['inference_time_ms_per_sample'],
-                'Train Time (s)': m_data['train_time_seconds']
-            })
-            
-        df_compare = pd.DataFrame(comparison_data)
-        
-        # Plotly chart: multi bar chart
-        df_melted = df_compare.melt(id_vars='Model', value_vars=['Accuracy', 'Precision (Macro)', 'Recall (Macro)', 'F1-Score (Macro)'],
-                                     var_name='Metric', value_name='Score')
-        
-        fig_metrics = px.bar(
-            df_melted,
-            x='Model',
-            y='Score',
-            color='Metric',
-            barmode='group',
-            color_discrete_sequence=['#60a5fa', '#10B981', '#F59E0B', '#EF4444'],
-            labels={'Score': 'Score Value'},
-            height=400
-        )
-        fig_metrics.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#c9d1d9'),
-            yaxis=dict(range=[0, 1.05]),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            margin=dict(l=20, r=20, t=10, b=20)
-        )
-        st.plotly_chart(fig_metrics, use_container_width=True)
-        
-        st.markdown("##### 📋 Model Performance Metrics Comparison Table")
-        st.dataframe(
-            df_compare.style.format({
-                'Accuracy': '{:.2%}',
-                'Precision (Macro)': '{:.2%}',
-                'Recall (Macro)': '{:.2%}',
-                'F1-Score (Macro)': '{:.2%}',
-                'Inference Speed (ms)': '{:.4f} ms',
-                'Train Time (s)': '{:.2f} s'
-            }).background_gradient(cmap='Blues', subset=['Accuracy', 'Precision (Macro)', 'Recall (Macro)', 'F1-Score (Macro)']),
-            use_container_width=True
-        )
-        
-        st.write("")
-        
-        col_speed_l, col_speed_r = st.columns(2)
-        with col_speed_l:
-            st.markdown("#### ⚡ Inference Latency Comparison")
-            st.write("Average prediction latency in milliseconds per sample (lower is faster).")
-            fig_speed = px.bar(
-                df_compare,
-                x='Model',
-                y='Inference Speed (ms)',
-                color='Inference Speed (ms)',
-                color_continuous_scale='Reds',
-                labels={'Inference Speed (ms)': 'Latency (ms)'},
-                height=300
-            )
-            fig_speed.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#c9d1d9'),
-                coloraxis_showscale=False,
-                margin=dict(l=20, r=20, t=10, b=20)
-            )
-            st.plotly_chart(fig_speed, use_container_width=True)
-            
-        with col_speed_r:
-            st.markdown("#### ⏳ Training Time Comparison")
-            st.write("Total training time in seconds (lower is faster).")
-            fig_train = px.bar(
-                df_compare,
-                x='Model',
-                y='Train Time (s)',
-                color='Train Time (s)',
-                color_continuous_scale='Purples',
-                labels={'Train Time (s)': 'Time (seconds)'},
-                height=300
-            )
-            fig_train.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#c9d1d9'),
-                coloraxis_showscale=False,
-                margin=dict(l=20, r=20, t=10, b=20)
-            )
-            st.plotly_chart(fig_train, use_container_width=True)
-            
-        st.write("")
-        st.markdown("---")
-        
-        # Model-Specific Analytics Selector
-        st.markdown("#### 🔍 Model Diagnostics Details")
-        st.write("Select any trained model to examine its details (confusion matrix, classification report, feature importances/coefficients).")
-        
-        selected_diag_key = st.selectbox(
-            "Select Model for Deep Analysis",
-            options=list(metrics_dict.keys()),
-            format_func=lambda x: metrics_dict[x]['name']
-        )
-        
-        selected_metric = metrics_dict[selected_diag_key]
-        
-        col_det_l, col_det_r = st.columns(2)
-        with col_det_l:
-            st.markdown(f"##### 🎛️ Confusion Matrix: {selected_metric['name']}")
-            cm = np.array(selected_metric['cm'])
-            class_labels = [f"Class {i}" for i in range(len(cm))]
-            
-            fig_cm = px.imshow(
-                cm,
-                labels=dict(x="Predicted Class Label", y="Ground Truth Label", color="Recordings Count"),
-                x=class_labels,
-                y=class_labels,
-                color_continuous_scale="Viridis",
-                text_auto=True,
-                aspect="auto"
-            )
-            fig_cm.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#c9d1d9'),
-                margin=dict(l=10, r=10, t=10, b=10)
-            )
-            st.plotly_chart(fig_cm, use_container_width=True)
-            
-        with col_det_r:
-            st.markdown(f"##### 📋 Classification Report: {selected_metric['name']}")
-            report_df = pd.DataFrame(selected_metric['report']).transpose().iloc[:-3] # exclude accuracy, macro avg, weighted avg
-            report_df.index = [f"Class {i}: {FAULT_CLASSES[int(float(i))]['name']}" for i in report_df.index]
-            
-            report_df = report_df.rename(columns={
-                'precision': 'Precision',
-                'recall': 'Recall',
-                'f1-score': 'F1-Score',
-                'support': 'Total Instances'
-            })
-            st.dataframe(report_df.style.background_gradient(cmap='Blues', subset=['Precision', 'Recall', 'F1-Score']), use_container_width=True)
-            
-        st.write("")
-        
-        # Feature Importance / Coefficients Section
-        st.markdown(f"##### 📊 Feature Relevance: {selected_metric['name']}")
-        
-        model_obj = models.get(selected_diag_key)
-        feature_names = metrics_payload.get('feature_names', [])
-        
-        if model_obj is not None:
-            if hasattr(model_obj, 'feature_importances_'):
-                importances = model_obj.feature_importances_
-                df_imp = pd.DataFrame({
-                    'Sensor Variable': feature_names,
-                    'Importance': importances
-                }).sort_values(by='Importance', ascending=False)
-                
-                fig_imp = px.bar(
-                    df_imp,
-                    x='Importance',
-                    y='Sensor Variable',
-                    orientation='h',
-                    color='Importance',
-                    color_continuous_scale='Blues',
-                    title=f'{selected_metric["name"]} - Feature Importances (Sum = 1.0)',
-                    height=450
-                )
-                fig_imp.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='#c9d1d9'),
-                    coloraxis_showscale=False,
-                    yaxis=dict(autorange="reversed"),
-                    margin=dict(l=10, r=10, t=30, b=10)
-                )
-                st.plotly_chart(fig_imp, use_container_width=True)
-                
-            elif hasattr(model_obj, 'coef_'):
-                # For Logistic Regression
-                coefs = model_obj.coef_
-                class_names = [f"Class {i}: {FAULT_CLASSES[i]['name']}" for i in range(len(coefs))]
-                
-                fig_coef = px.imshow(
-                    coefs,
-                    labels=dict(x="Engine Sensor Variable", y="Predicted Diagnostics Class", color="Coefficient Weight"),
-                    x=feature_names,
-                    y=class_names,
-                    color_continuous_scale="RdBu_r",
-                    color_continuous_midpoint=0,
-                    aspect="auto",
-                    title="Logistic Regression - Diagnostic Coefficients Map (Red=Positive, Blue=Negative)"
-                )
-                fig_coef.update_layout(
-                    xaxis_tickangle=-45,
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color='#c9d1d9'),
-                    margin=dict(l=10, r=10, t=30, b=10)
-                )
-                st.plotly_chart(fig_coef, use_container_width=True)
-            else:
-                st.info("ℹ️ Distance-based classifiers like Support Vector Machines (RBF Kernel) and K-Nearest Neighbors do not project direct linear coefficients or tree-based feature importances.")
-        else:
-            st.warning("Could not load the model weights object to extract feature importances.")
-            
-    else:
-        st.info("Performance analytics metrics are not available. Please retrain models to generate them.")
-
-# ----------------- TAB 2: SINGLE ENGINE DIAGNOSTICS -----------------
-elif app_mode == "🔍 Single Engine Diagnostics":
-    st.markdown("### 🔍 Real-Time Sensor Diagnosis Station")
-    st.write(f"Modify physical sensor parameters below. The values will be scaled and evaluated using the active model: **{model_options[selected_model_key]}**.")
-
-    # Initialize slider state values in session_state if not present
-    for col, limits in stats_dict.items():
-        key = f"slider_{col}"
-        if key not in st.session_state:
-            st.session_state[key] = limits[2]
-
-    # Create Columns for Categories
-    col_inputs, col_result = st.columns([7, 5])
-    
-    with col_inputs:
-        st.markdown("#### 🛠️ Sensor Inputs")
-        
-        # Group 1: Mechanical Operation
-        st.markdown("<div class='feature-group-header'>⚙️ Primary Engine Operation Parameters</div>", unsafe_allow_html=True)
-        col_g1_1, col_g1_2 = st.columns(2)
-        with col_g1_1:
-            limits = stats_dict.get('Shaft_RPM', (750.0, 1150.0, 960.0))
-            shaft_rpm = st.slider("Shaft RPM (rotations/min)", min_value=limits[0], max_value=limits[1], key='slider_Shaft_RPM', step=1.0)
-            
-            limits = stats_dict.get('Engine_Load', (25.0, 110.0, 75.0))
-            engine_load = st.slider("Engine Load (%)", min_value=limits[0], max_value=limits[1], key='slider_Engine_Load', step=0.5)
-        with col_g1_2:
-            limits = stats_dict.get('Fuel_Flow', (60.0, 190.0, 130.0))
-            fuel_flow = st.slider("Fuel Flow Rate (L/h)", min_value=limits[0], max_value=limits[1], key='slider_Fuel_Flow', step=0.5)
-            
-            limits = stats_dict.get('Air_Pressure', (0.3, 1.6, 1.15))
-            air_pressure = st.slider("Air Pressure (bar)", min_value=limits[0], max_value=limits[1], key='slider_Air_Pressure', step=0.01)
-
-        # Group 2: Lubrication & Thermal Condition
-        st.markdown("<div class='feature-group-header'>🌡️ Lubrication & Thermal Diagnostics</div>", unsafe_allow_html=True)
-        col_g2_1, col_g2_2 = st.columns(2)
-        with col_g2_1:
-            limits = stats_dict.get('Ambient_Temp', (15.0, 40.0, 27.0))
-            ambient_temp = st.slider("Ambient Temperature (°C)", min_value=limits[0], max_value=limits[1], key='slider_Ambient_Temp', step=0.1)
-            
-            limits = stats_dict.get('Oil_Temp', (60.0, 115.0, 78.0))
-            oil_temp = st.slider("Oil Temperature (°C)", min_value=limits[0], max_value=limits[1], key='slider_Oil_Temp', step=0.1)
-        with col_g2_2:
-            limits = stats_dict.get('Oil_Pressure', (0.4, 5.2, 3.4))
-            oil_pressure = st.slider("Oil Pressure (bar)", min_value=limits[0], max_value=limits[1], key='slider_Oil_Pressure', step=0.05)
-
-        # Group 3: Vibration Channels
-        st.markdown("<div class='feature-group-header'>📳 Vibration Sensors</div>", unsafe_allow_html=True)
-        col_g3_1, col_g3_2, col_g3_3 = st.columns(3)
-        with col_g3_1:
-            limits = stats_dict.get('Vibration_X', (0.0, 0.5, 0.06))
-            vib_x = st.slider("Vibration X (g-force)", min_value=limits[0], max_value=limits[1], key='slider_Vibration_X', step=0.005)
-        with col_g3_2:
-            limits = stats_dict.get('Vibration_Y', (0.0, 0.5, 0.05))
-            vib_y = st.slider("Vibration Y (g-force)", min_value=limits[0], max_value=limits[1], key='slider_Vibration_Y', step=0.005)
-        with col_g3_3:
-            limits = stats_dict.get('Vibration_Z', (0.0, 0.6, 0.07))
-            vib_z = st.slider("Vibration Z (g-force)", min_value=limits[0], max_value=limits[1], key='slider_Vibration_Z', step=0.005)
-
-        # Group 4: Combustion Chambers
-        st.markdown("<div class='feature-group-header'>🔥 Combustion Cylinder Pressures & Exhaust Temperatures</div>", unsafe_allow_html=True)
-        
-        with st.expander("Cylinder Compression Pressures"):
-            col_c_p1, col_c_p2 = st.columns(2)
-            with col_c_p1:
-                limits = stats_dict.get('Cylinder1_Pressure', (85.0, 190.0, 145.0))
-                cyl1_p = st.slider("Cylinder 1 Pressure (bar)", min_value=limits[0], max_value=limits[1], key='slider_Cylinder1_Pressure', step=0.5)
-                
-                limits = stats_dict.get('Cylinder2_Pressure', (90.0, 190.0, 145.0))
-                cyl2_p = st.slider("Cylinder 2 Pressure (bar)", min_value=limits[0], max_value=limits[1], key='slider_Cylinder2_Pressure', step=0.5)
-            with col_c_p2:
-                limits = stats_dict.get('Cylinder3_Pressure', (85.0, 190.0, 145.0))
-                cyl3_p = st.slider("Cylinder 3 Pressure (bar)", min_value=limits[0], max_value=limits[1], key='slider_Cylinder3_Pressure', step=0.5)
-                
-                limits = stats_dict.get('Cylinder4_Pressure', (85.0, 190.0, 145.0))
-                cyl4_p = st.slider("Cylinder 4 Pressure (bar)", min_value=limits[0], max_value=limits[1], key='slider_Cylinder4_Pressure', step=0.5)
-
-        with st.expander("Cylinder Exhaust Gas Temperatures"):
-            col_c_t1, col_c_t2 = st.columns(2)
-            with col_c_t1:
-                limits = stats_dict.get('Cylinder1_Exhaust_Temp', (290.0, 620.0, 420.0))
-                cyl1_t = st.slider("Cylinder 1 Exhaust (°C)", min_value=limits[0], max_value=limits[1], key='slider_Cylinder1_Exhaust_Temp', step=1.0)
-                
-                limits = stats_dict.get('Cylinder2_Exhaust_Temp', (310.0, 600.0, 420.0))
-                cyl2_t = st.slider("Cylinder 2 Exhaust (°C)", min_value=limits[0], max_value=limits[1], key='slider_Cylinder2_Exhaust_Temp', step=1.0)
-            with col_c_t2:
-                limits = stats_dict.get('Cylinder3_Exhaust_Temp', (300.0, 610.0, 420.0))
-                cyl3_t = st.slider("Cylinder 3 Exhaust (°C)", min_value=limits[0], max_value=limits[1], key='slider_Cylinder3_Exhaust_Temp', step=1.0)
-                
-                limits = stats_dict.get('Cylinder4_Exhaust_Temp', (310.0, 620.0, 420.0))
-                cyl4_t = st.slider("Cylinder 4 Exhaust (°C)", min_value=limits[0], max_value=limits[1], key='slider_Cylinder4_Exhaust_Temp', step=1.0)
-
-    with col_result:
-        st.markdown("#### 🚨 Diagnosis Result")
-        
-        # Consolidate feature array
-        input_data = np.array([[
-            shaft_rpm, engine_load, fuel_flow, air_pressure, ambient_temp, oil_temp, oil_pressure,
-            vib_x, vib_y, vib_z, cyl1_p, cyl1_t, cyl2_p, cyl2_t, cyl3_p, cyl3_t, cyl4_p, cyl4_t
-        ]])
-        
-        # Scale inputs
-        input_scaled = scaler.transform(input_data)
-        
-        # Run prediction
-        pred_class = int(model.predict(input_scaled)[0])
-        pred_probs = model.predict_proba(input_scaled)[0]
-        confidence = pred_probs[pred_class]
-        
-        class_info = FAULT_CLASSES[pred_class]
-        severity_color = class_info["color"]
-        severity_label = class_info["severity"]
-        
-        glow_shadow = f"box-shadow: 0 0 25px {severity_color}35;"
-        
-        # Diagnosis Status box
+        # Layout three information cards
         st.markdown(f"""
-        <div class='diag-card' style='border-left: 8px solid {severity_color}; {glow_shadow}'>
-            <div style='display: flex; justify-content: space-between; align-items: center;'>
-                <span style='font-size: 0.9rem; color: #9ca3af; font-weight: 700; text-transform: uppercase;'>Engine Status ({model_options[selected_model_key]})</span>
-                <span style='background-color: {severity_color}25; color: {severity_color}; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700; border: 1px solid {severity_color};'>{severity_label}</span>
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 5px solid {status_color} !important;">
+                <h3>Engine Status</h3>
+                <p class="card-value" style="color: {status_color} !important;">{status_icon} {severity_label}</p>
+                <p class="card-desc">Overall Severity Index</p>
             </div>
-            <div style='font-size: 1.5rem; font-weight: 800; color: #ffffff; margin-top: 0.6rem;'>
-                {class_info["name"]}
+            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 5px solid {status_color} !important;">
+                <h3>Predicted Fault</h3>
+                <p class="card-value" style="font-size: 1.15rem !important; line-height: 1.4; color: #111827;">{fault_info['name']}</p>
+                <p class="card-desc">Target Classifier Diagnosis</p>
             </div>
-            <div style='font-size: 0.95rem; color: #9ca3af; margin-top: 0.6rem; line-height: 1.4;'>
-                {class_info["desc"]}
-            </div>
-            <div style='margin-top: 1.2rem; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 0.6rem; font-size: 0.85rem; color: #9ca3af;'>
-                Confidence Score: <strong style='color: #ffffff; font-size: 1rem;'>{confidence:.2%}</strong>
+            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 5px solid {status_color} !important;">
+                <h3>Engine Health</h3>
+                <p class="card-value" style="color: {status_color} !important;">{health_score:.1f}%</p>
+                <p class="card-desc">Physical Health Index</p>
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Probabilities Bar Chart
-        st.write("")
-        st.markdown("##### 📊 Probability Distribution")
-        
-        probs_df = pd.DataFrame({
-            'Diagnosis': [FAULT_CLASSES[i]['name'] for i in range(len(pred_probs))],
-            'Probability (%)': pred_probs * 100
-        })
-        
-        fig_probs = px.bar(
-            probs_df,
-            x='Probability (%)',
-            y='Diagnosis',
-            orientation='h',
-            text='Probability (%)',
-            color='Probability (%)',
-            color_continuous_scale='Blues',
-            range_x=[0, 100]
-        )
-        fig_probs.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-        fig_probs.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#c9d1d9'),
-            height=320,
-            xaxis=dict(showgrid=False),
-            yaxis=dict(autorange="reversed"),
-            coloraxis_showscale=False,
-            margin=dict(l=10, r=50, t=10, b=10)
-        )
-        st.plotly_chart(fig_probs, use_container_width=True)
 
-        # Multi-model real-time check
-        st.write("")
-        with st.expander("🤖 Real-Time Multi-Model Comparison"):
-            st.write("Compare diagnosis results from all 6 ML classifiers on current slider parameters:")
-            
-            multi_preds = []
-            for m_key, m_obj in models.items():
-                m_pred = int(m_obj.predict(input_scaled)[0])
-                m_probs = m_obj.predict_proba(input_scaled)[0]
-                m_conf = m_probs[m_pred]
-                m_info = FAULT_CLASSES[m_pred]
-                
-                multi_preds.append({
-                    'Classifier Model': model_options[m_key],
-                    'Predicted Status': m_info['name'],
-                    'Severity': m_info['severity'],
-                    'Confidence Score': f"{m_conf:.2%}"
-                })
-                
-            st.dataframe(pd.DataFrame(multi_preds), use_container_width=True)
+    with col_h2:
+        # Display the engine illustration
+        if os.path.exists("ship_engine.png"):
+            st.image("ship_engine.png", use_container_width=True, caption="Ship Propulsion Engine Illustration")
+        else:
+            st.warning("Ship engine image asset not found.")
 
-        # Quick Presets Sandbox
-        st.write("")
-        st.markdown("##### 💡 Anomaly Presets Sandbox")
-        st.write("Instantly load sensor value patterns to simulate specific engine conditions:")
-        
-        # Display the message if any is set in session_state
-        if 'preset_message' in st.session_state:
-            msg_type, text = st.session_state['preset_message']
-            if msg_type == "healthy":
-                st.info(text)
-            else:
-                st.warning(text)
-                
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            st.button("🟢 Normal Operation preset", on_click=load_preset, args=("healthy",), use_container_width=True)
-            st.button("🔴 Fuel Delivery Anomaly preset", on_click=load_preset, args=("fuel",), use_container_width=True)
-            st.button("🔴 Low Compression preset", on_click=load_preset, args=("compression",), use_container_width=True)
-            st.button("🔴 Exhaust Heat Anomaly preset", on_click=load_preset, args=("exhaust",), use_container_width=True)
-        with col_btn2:
-            st.button("🔴 Radial Vibration preset", on_click=load_preset, args=("vibration",), use_container_width=True)
-            st.button("🔴 Lubrication Thermal preset", on_click=load_preset, args=("lube_thermal",), use_container_width=True)
-            st.button("🔴 Turbocharger Fault preset", on_click=load_preset, args=("turbo",), use_container_width=True)
-            st.button("🔴 Lube Pressure & Axial Vib preset", on_click=load_preset, args=("lube_axial",), use_container_width=True)
+    # Simple workflow below
+    st.markdown("<div class='section-header'>🔄 Predictive Maintenance Workflow</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class="workflow-container">
+        <div class="workflow-step">
+            <div style="font-size: 1.8rem;">🔌</div>
+            <h4>Sensor Data</h4>
+            <p>18 real-time physical telemetry channels from cylinder valves, bearings, and sumps.</p>
+        </div>
+        <div class="workflow-arrow">➡</div>
+        <div class="workflow-step">
+            <div style="font-size: 1.8rem;">🧠</div>
+            <h4>Machine Learning Model</h4>
+            <p>Standardized feature scaling with Random Forest ensemble classifier prediction.</p>
+        </div>
+        <div class="workflow-arrow">➡</div>
+        <div class="workflow-step">
+            <div style="font-size: 1.8rem;">🔍</div>
+            <h4>Fault Prediction</h4>
+            <p>Detection of normal operations or 7 unique mechanical anomaly diagnoses.</p>
+        </div>
+        <div class="workflow-arrow">➡</div>
+        <div class="workflow-step">
+            <div style="font-size: 1.8rem;">🛠️</div>
+            <h4>Maintenance Rec</h4>
+            <p>Immediate action checklist and priority response crew directives.</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# ----------------- TAB 3: BATCH FILE DIAGNOSTICS -----------------
-elif app_mode == "📁 Batch File Diagnostics":
-    st.markdown("### 📁 Batch Processing Station")
-    st.write(f"Upload a CSV file containing multiple engine recordings. Predictions will be processed using: **{model_options[selected_model_key]}**.")
-
-    uploaded_file = st.file_uploader("Upload Engine Sensor CSV File", type=["csv"])
+elif page_selection == "🔍 Prediction":
+    # ------------------ PREDICTION PAGE ------------------
+    st.markdown("<div class='main-title'>🔍 Predictive Diagnostics Form</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-subtitle'>Adjust engine signals or load a preset scenario to perform maintenance diagnostics.</div>", unsafe_allow_html=True)
     
-    if uploaded_file is not None:
-        try:
-            df_upload = pd.read_csv(uploaded_file)
-            st.success("File uploaded successfully!")
+    # Preset Selector at top
+    preset_choice = st.selectbox(
+        "⚡ Load System Anomaly Presets:",
+        [
+            "Normal Operation",
+            "Fuel Delivery System Anomaly",
+            "Low Cylinder Compression Pressure",
+            "Combustion Heat / Exhaust Gas Anomaly",
+            "Radial Engine Vibration Fault",
+            "Lubrication System Thermal Anomaly",
+            "Air Intake Pressure / Turbocharger Fault",
+            "Lubrication Pressure & Axial Vibration Fault"
+        ]
+    )
+    if st.button("Load Preset"):
+        load_preset(preset_choice)
+        st.success(f"Loaded variables for: {preset_choice}")
+        
+    st.markdown("<div class='section-header'>🎛️ Physical Sensor Measurements</div>", unsafe_allow_html=True)
+    
+    # 3-column input field form structure
+    col_f1, col_f2, col_f3 = st.columns(3)
+    
+    with col_f1:
+        st.markdown("##### ⚙️ Propulsion States")
+        st.slider("Shaft RPM (rotations/min)", 750.0, 1150.0, key="input_Shaft_RPM", step=1.0)
+        st.slider("Engine Load (%)", 25.0, 110.0, key="input_Engine_Load", step=0.5)
+        st.slider("Fuel Flow (L/h)", 60.0, 190.0, key="input_Fuel_Flow", step=1.0)
+        st.slider("Air Pressure (bar)", 0.3, 1.6, key="input_Air_Pressure", step=0.01)
+        st.slider("Ambient Temperature (°C)", 15.0, 40.0, key="input_Ambient_Temp", step=0.5)
+        st.slider("Oil Temperature (°C)", 60.0, 115.0, key="input_Oil_Temp", step=0.5)
+        
+    with col_f2:
+        st.markdown("##### 📳 Vibration Channels & Oil")
+        st.slider("Oil Pressure (bar)", 0.4, 5.2, key="input_Oil_Pressure", step=0.05)
+        st.slider("Vibration X (g)", 0.0, 0.5, key="input_Vibration_X", step=0.001)
+        st.slider("Vibration Y (g)", 0.0, 0.5, key="input_Vibration_Y", step=0.001)
+        st.slider("Vibration Z (g)", 0.0, 0.6, key="input_Vibration_Z", step=0.001)
+        st.markdown("##### 🛢️ Combustion Pressures (bar)")
+        st.slider("Cylinder 1 Pressure", 85.0, 190.0, key="input_Cylinder1_Pressure", step=1.0)
+        st.slider("Cylinder 2 Pressure", 90.0, 190.0, key="input_Cylinder2_Pressure", step=1.0)
+        
+    with col_f3:
+        st.markdown("##### 🛢️ Combustion Pressures & Exhausts")
+        st.slider("Cylinder 3 Pressure (bar)", 85.0, 190.0, key="input_Cylinder3_Pressure", step=1.0)
+        st.slider("Cylinder 4 Pressure (bar)", 85.0, 190.0, key="input_Cylinder4_Pressure", step=1.0)
+        st.markdown("##### 🔥 Exhaust Temperatures (°C)")
+        st.slider("Cylinder 1 Exhaust Temperature", 290.0, 620.0, key="input_Cylinder1_Exhaust_Temp", step=1.0)
+        st.slider("Cylinder 2 Exhaust Temperature", 310.0, 600.0, key="input_Cylinder2_Exhaust_Temp", step=1.0)
+        st.slider("Cylinder 3 Exhaust Temperature", 300.0, 610.0, key="input_Cylinder3_Exhaust_Temp", step=1.0)
+        st.slider("Cylinder 4 Exhaust Temperature", 310.0, 620.0, key="input_Cylinder4_Exhaust_Temp", step=1.0)
+
+    # Large Action Button
+    st.write("")
+    if st.button("🚀 Predict Engine Fault"):
+        st.session_state['predicted_clicked'] = True
+        
+        # Load input values into vector
+        input_vector = [st.session_state[f"input_{col}"] for col in feature_cols]
+        scaled_vector = scaler.transform([input_vector])
+        
+        # Random forest classifier prediction
+        model_obj = models['random_forest']
+        pred_label = int(model_obj.predict(scaled_vector)[0])
+        pred_probs = model_obj.predict_proba(scaled_vector)[0]
+        confidence_score = float(pred_probs[pred_label])
+        
+        # Derive engine health score
+        if pred_label == 0:
+            health_score = 95.0 + (confidence_score * 4.8)
+        else:
+            # Anomaly health degradation
+            health_score = max(5.0, 90.0 - (confidence_score * 45.0) - (np.random.random() * 8.0))
             
-            expected_features = [
-                'Shaft_RPM', 'Engine_Load', 'Fuel_Flow', 'Air_Pressure', 'Ambient_Temp', 'Oil_Temp', 'Oil_Pressure',
-                'Vibration_X', 'Vibration_Y', 'Vibration_Z', 'Cylinder1_Pressure', 'Cylinder1_Exhaust_Temp',
-                'Cylinder2_Pressure', 'Cylinder2_Exhaust_Temp', 'Cylinder3_Pressure', 'Cylinder3_Exhaust_Temp',
-                'Cylinder4_Pressure', 'Cylinder4_Exhaust_Temp'
-            ]
+        st.session_state['latest_pred'] = pred_label
+        st.session_state['latest_conf'] = confidence_score
+        st.session_state['latest_health'] = health_score
+
+    # Result Cards Display (After clicking Predict)
+    if st.session_state['predicted_clicked']:
+        pred_label = st.session_state['latest_pred']
+        confidence_score = st.session_state['latest_conf']
+        health_score = st.session_state['latest_health']
+        
+        fault_info = FAULT_CLASSES[pred_label]
+        color = fault_info['color']
+        severity = fault_info['severity']
+        
+        # Class styling properties
+        if severity == "Healthy":
+            card_bg = "#ecfdf5"
+            card_text = "#065f46"
+        elif severity == "Warning":
+            card_bg = "#fffbeb"
+            card_text = "#92400e"
+        else:
+            card_bg = "#fef2f2"
+            card_text = "#991b1b"
             
-            missing_cols = [col for col in expected_features if col not in df_upload.columns]
-            if len(missing_cols) > 0:
-                st.error(f"Failed to process CSV. The file is missing the following required sensor columns:\n`{missing_cols}`")
+        # Display Result Indicator cards
+        st.markdown("<div class='section-header'>📊 Classification Result Metrics</div>", unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 5px solid {color} !important;">
+                <h3>Predicted Fault</h3>
+                <p class="card-value" style="color: {color} !important; font-size: 1.25rem !important; line-height: 1.4;">{fault_info['name']}</p>
+                <p class="card-desc">Output Target Diagnostics</p>
+            </div>
+            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 5px solid {color} !important;">
+                <h3>Prediction Confidence</h3>
+                <p class="card-value">{confidence_score:.2%}</p>
+                <p class="card-desc">Model Output Classification probability</p>
+            </div>
+            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 5px solid {color} !important;">
+                <h3>Engine Health</h3>
+                <p class="card-value" style="color: {color} !important;">{health_score:.1f}%</p>
+                <p class="card-desc">Propulsion Plant Health Index</p>
+            </div>
+        </div>
+        
+        <div class="white-card" style="border-left: 6px solid {color} !important; background-color: {card_bg} !important; color: {card_text} !important; padding: 1.5rem !important; margin-top: 1rem;">
+            <h3 style="color: {card_text} !important; font-size: 0.95rem !important;">🛠️ Maintenance Recommendation</h3>
+            <p style="font-size: 1.05rem !important; font-weight: 600 !important; color: {card_text} !important; margin-top: 0.6rem; margin-bottom: 0;">
+                {fault_info['rec']}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+elif page_selection == "📊 Model Performance":
+    # ------------------ MODEL PERFORMANCE PAGE ------------------
+    st.markdown("<div class='main-title'>📊 Classifiers Benchmarking & Performance</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-subtitle'>Comparison matrix and diagnostic metrics for all six machine learning models trained.</div>", unsafe_allow_html=True)
+    
+    if metrics_payload and 'metrics' in metrics_payload:
+        m_dict = metrics_payload['metrics']
+        
+        # Cards metrics payload extraction helper
+        def extract_metrics(m_key):
+            v = m_dict[m_key]
+            return {
+                'accuracy': v['accuracy'],
+                'precision': v['report']['macro avg']['precision'],
+                'recall': v['report']['macro avg']['recall'],
+                'f1': v['report']['macro avg']['f1-score']
+            }
+            
+        rf = extract_metrics('random_forest')
+        xgb = extract_metrics('xgboost')
+        dt = extract_metrics('decision_tree')
+        lr = extract_metrics('logistic_regression')
+        svm = extract_metrics('svm')
+        knn = extract_metrics('knn')
+        
+        # Grid arrangement for model cards
+        col_c1, col_c2, col_c3 = st.columns(3)
+        col_c4, col_c5, col_c6 = st.columns(3)
+        
+        # 1. Random Forest (Highlight best model)
+        with col_c1:
+            st.markdown(f"""
+            <div class="white-card" style="border: 2px solid #fbbf24 !important; box-shadow: 0 0 15px rgba(251, 191, 36, 0.35) !important; position: relative;">
+                <span style="position: absolute; top: -12px; right: 12px; background-color: #fbbf24; color: #000000; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 10px; font-family: 'Inter', sans-serif;">⭐ BEST MODEL</span>
+                <h3 style="color: #d97706 !important;">Random Forest</h3>
+                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {rf['accuracy']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {rf['precision']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {rf['recall']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {rf['f1']:.2%}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # 2. XGBoost
+        with col_c2:
+            st.markdown(f"""
+            <div class="white-card">
+                <h3 style="color: #2563eb !important;">XGBoost</h3>
+                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {xgb['accuracy']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {xgb['precision']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {xgb['recall']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {xgb['f1']:.2%}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # 3. Decision Tree
+        with col_c3:
+            st.markdown(f"""
+            <div class="white-card">
+                <h3 style="color: #4b5563 !important;">Decision Tree</h3>
+                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {dt['accuracy']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {dt['precision']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {dt['recall']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {dt['f1']:.2%}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # 4. Logistic Regression
+        with col_c4:
+            st.markdown(f"""
+            <div class="white-card">
+                <h3 style="color: #4b5563 !important;">Logistic Regression</h3>
+                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {lr['accuracy']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {lr['precision']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {lr['recall']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {lr['f1']:.2%}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # 5. SVM
+        with col_c5:
+            st.markdown(f"""
+            <div class="white-card">
+                <h3 style="color: #4b5563 !important;">SVM</h3>
+                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {svm['accuracy']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {svm['precision']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {svm['recall']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {svm['f1']:.2%}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # 6. KNN
+        with col_c6:
+            st.markdown(f"""
+            <div class="white-card">
+                <h3 style="color: #4b5563 !important;">KNN</h3>
+                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {knn['accuracy']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {knn['precision']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {knn['recall']:.2%}</p>
+                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {knn['f1']:.2%}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<div class='section-header'>📊 Model Benchmark Charts</div>", unsafe_allow_html=True)
+        col_ch1, col_ch2 = st.columns(2)
+        
+        with col_ch1:
+            # 1. Accuracy Comparison Chart
+            df_acc = pd.DataFrame({
+                'Algorithm': ['Logistic Reg.', 'Decision Tree', 'KNN', 'Random Forest', 'XGBoost', 'SVM'],
+                'Accuracy': [lr['accuracy'], dt['accuracy'], knn['accuracy'], rf['accuracy'], xgb['accuracy'], svm['accuracy']]
+            }).sort_values(by='Accuracy', ascending=False)
+            
+            fig_acc = px.bar(
+                df_acc, x='Algorithm', y='Accuracy', color='Accuracy',
+                color_continuous_scale='Blues', title='Model Accuracy Benchmarks'
+            )
+            fig_acc.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#ffffff', yaxis=dict(range=[0.7, 1.0], gridcolor='rgba(255,255,255,0.05)'),
+                coloraxis_showscale=False, margin=dict(l=30, r=20, t=40, b=30), height=300
+            )
+            st.plotly_chart(fig_acc, use_container_width=True)
+
+        with col_ch2:
+            # 2. Feature Importance Chart (Random Forest)
+            rf_model_obj = models.get('random_forest')
+            if rf_model_obj and hasattr(rf_model_obj, 'feature_importances_'):
+                importances = rf_model_obj.feature_importances_
+                df_imp = pd.DataFrame({
+                    'Sensor Channel': [f.replace('_', ' ') for f in feature_cols],
+                    'Importance': importances
+                }).sort_values(by='Importance', ascending=True).tail(8) # Top 8 features
+                
+                fig_imp = px.bar(
+                    df_imp, x='Importance', y='Sensor Channel', orientation='h',
+                    color='Importance', color_continuous_scale='Blues',
+                    title='Random Forest Feature Importance (Top 8 Sensors)'
+                )
+                fig_imp.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#ffffff', coloraxis_showscale=False,
+                    xaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+                    margin=dict(l=30, r=20, t=40, b=30), height=300
+                )
+                st.plotly_chart(fig_imp, use_container_width=True)
             else:
-                with st.spinner("Processing batch predictions..."):
-                    # Process predictions
-                    x_batch = df_upload[expected_features].values
-                    x_batch_scaled = scaler.transform(x_batch)
-                    
-                    # Selected model predict
-                    preds = model.predict(x_batch_scaled)
-                    probs = model.predict_proba(x_batch_scaled)
-                    max_probs = np.max(probs, axis=1)
-                    
-                    # Add outputs to dataframe
-                    df_upload['Predicted_Fault_Label'] = preds
-                    df_upload['Diagnosis_Name'] = [FAULT_CLASSES[p]['name'] for p in preds]
-                    df_upload['Diagnostic_Severity'] = [FAULT_CLASSES[p]['severity'] for p in preds]
-                    df_upload['Confidence_Score'] = max_probs
-                    
-                    # Run predictions for all models to show consensus
-                    consensus_cols = {}
-                    for m_key, m_obj in models.items():
-                        m_preds = m_obj.predict(x_batch_scaled)
-                        consensus_cols[model_options[m_key]] = m_preds
+                st.warning("Feature importances not available.")
+
+        col_ch3, col_ch4 = st.columns(2)
+        
+        with col_ch3:
+            # 3. Confusion Matrix Chart
+            selected_cm = st.selectbox(
+                "Select Model for Confusion Matrix Visualizer:",
+                ["Random Forest", "XGBoost", "Decision Tree", "Support Vector Machine", "K-Nearest Neighbors", "Logistic Regression"]
+            )
+            cm_mapping = {
+                "Random Forest": "random_forest",
+                "XGBoost": "xgboost",
+                "Decision Tree": "decision_tree",
+                "Support Vector Machine": "svm",
+                "K-Nearest Neighbors": "knn",
+                "Logistic Regression": "logistic_regression"
+            }
+            cm_key = cm_mapping[selected_cm]
+            cm = np.array(m_dict[cm_key]['cm'])
+            
+            fig_cm = px.imshow(
+                cm, text_auto=True, aspect="auto",
+                labels=dict(x="Predicted Diagnosis Class", y="True Diagnosis Class", color="Count"),
+                x=[FAULT_CLASSES[i]['name'] for i in range(8)],
+                y=[FAULT_CLASSES[i]['name'] for i in range(8)],
+                title=f"Confusion Matrix Heatmap: {selected_cm}",
+                color_continuous_scale='Blues'
+            )
+            fig_cm.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#ffffff', margin=dict(l=30, r=20, t=40, b=30), height=350
+            )
+            st.plotly_chart(fig_cm, use_container_width=True)
+
+        with col_ch4:
+            # 4. ROC Curves (One-vs-Rest for target class)
+            target_class_roc = st.selectbox(
+                "Select Target Classification class for ROC Curve:",
+                options=list(FAULT_CLASSES.keys()),
+                format_func=lambda x: FAULT_CLASSES[x]['name']
+            )
+            
+            # Helper to get test split
+            @st.cache_data
+            def get_test_splits():
+                csv_path = "marine_engine_fault_dataset (1).csv"
+                if not os.path.exists(csv_path):
+                    return None, None
+                df = pd.read_csv(csv_path).dropna().drop_duplicates()
+                x_data = df[feature_cols].values
+                y_data = df['Fault_Label'].values
+                
+                from sklearn.model_selection import train_test_split
+                _, x_test, _, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
+                
+                with open("scaler.pkl", "rb") as f_sc:
+                    sc = pickle.load(f_sc)
+                x_test_scaled = sc.transform(x_test)
+                return y_test, x_test_scaled
+                
+            y_test, x_test_scaled = get_test_splits()
+            
+            if y_test is not None:
+                fig_roc = go.Figure()
+                line_colors = {
+                    'logistic_regression': '#60a5fa',
+                    'random_forest': '#10b981',
+                    'xgboost': '#fbbf24',
+                    'decision_tree': '#a78bfa',
+                    'svm': '#f43f5e',
+                    'knn': '#ec4899'
+                }
+                
+                for m_k, m_v in models.items():
+                    if hasattr(m_v, 'predict_proba'):
+                        probs = m_v.predict_proba(x_test_scaled)
+                        y_test_bin = (y_test == target_class_roc).astype(int)
+                        y_score = probs[:, target_class_roc]
                         
-                    df_consensus = pd.DataFrame(consensus_cols)
-                    
-                    # Calculate row-wise consensus: fraction of models that agree with the majority prediction
-                    majority_preds = df_consensus.mode(axis=1).iloc[:, 0].values
-                    agreement_counts = (df_consensus.values == majority_preds[:, None]).sum(axis=1)
-                    avg_agreement_pct = agreement_counts.mean() / 6.0
-                    
-                    # Metrics row
-                    total_records = len(df_upload)
-                    anomaly_count = len(df_upload[df_upload['Predicted_Fault_Label'] > 0])
-                    healthy_count = total_records - anomaly_count
-                    anomaly_pct = anomaly_count / total_records if total_records > 0 else 0
-                    
-                    st.write("")
-                    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                    with col_m1:
-                        st.markdown(f"""
-                        <div class='metric-card'>
-                            <div class='metric-label'>Total Records Processed</div>
-                            <div class='metric-value'>{total_records:,}</div>
-                            <div class='metric-desc'>Rows analyzed in CSV</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    with col_m2:
-                        st.markdown(f"""
-                        <div class='metric-card'>
-                            <div class='metric-label'>Normal Readings</div>
-                            <div class='metric-value' style='color: #10B981;'>{healthy_count:,}</div>
-                            <div class='metric-desc'>Nominal engine states</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    with col_m3:
-                        st.markdown(f"""
-                        <div class='metric-card'>
-                            <div class='metric-label'>Anomaly Detections</div>
-                            <div class='metric-value' style='color: #EF4444;'>{anomaly_count:,}</div>
-                            <div class='metric-desc'>Inspections required</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    with col_m4:
-                        st.markdown(f"""
-                        <div class='metric-card'>
-                            <div class='metric-label'>Consensus Agreement</div>
-                            <div class='metric-value'>{avg_agreement_pct:.2%}</div>
-                            <div class='metric-desc'>Classifier consensus index</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    # Multi-Model Consensus Breakdown
-                    st.write("")
-                    st.markdown("#### 🤖 Classifier Consensus Breakdown")
-                    st.write("Compare predictions and anomaly discovery distributions across all 6 models on this batch file:")
-                    
-                    model_breakdown = []
-                    for m_key, m_obj in models.items():
-                        m_preds = consensus_cols[model_options[m_key]]
-                        m_anoms = (m_preds > 0).sum()
-                        model_breakdown.append({
-                            'Model Classifier': model_options[m_key],
-                            'Accuracy (on Test Set)': f"{metrics_payload['metrics'][m_key]['accuracy']:.2%}",
-                            'Nominal Count': len(m_preds) - m_anoms,
-                            'Anomaly Count': m_anoms,
-                            'Anomaly Percentage': f"{m_anoms / len(m_preds):.2%}"
-                        })
-                    st.table(pd.DataFrame(model_breakdown))
-                    
-                    # Visualizations
-                    st.markdown("#### 📈 Batch Metrics & Trends")
-                    
-                    col_v1, col_v2 = st.columns(2)
-                    with col_v1:
-                        # Pie chart of predictions
-                        dist_df = df_upload['Diagnosis_Name'].value_counts().reset_index()
-                        dist_df.columns = ['Diagnosis', 'Count']
+                        fpr, tpr, _ = roc_curve(y_test_bin, y_score)
+                        roc_auc = auc(fpr, tpr)
                         
-                        fig_pie = px.pie(
-                            dist_df,
-                            values='Count',
-                            names='Diagnosis',
-                            title=f'Diagnostics Distribution ({model_options[selected_model_key]})',
-                            hole=0.4,
-                            color_discrete_sequence=px.colors.qualitative.Pastel
-                        )
-                        fig_pie.update_layout(
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            font=dict(color='#c9d1d9'),
-                            margin=dict(l=20, r=20, t=40, b=20)
-                        )
-                        st.plotly_chart(fig_pie, use_container_width=True)
-                        
-                    with col_v2:
-                        # Shaft RPM vs Fuel Flow colored by predicted fault
-                        fig_scatter = px.scatter(
-                            df_upload,
-                            x='Shaft_RPM',
-                            y='Fuel_Flow',
-                            color='Diagnosis_Name',
-                            title='Operating Window: Shaft RPM vs Fuel Flow',
-                            opacity=0.7,
-                            labels={'Diagnosis_Name': 'Diagnostics'},
-                            color_discrete_sequence=px.colors.qualitative.Bold
-                        )
-                        fig_scatter.update_layout(
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            font=dict(color='#c9d1d9'),
-                            margin=dict(l=20, r=20, t=40, b=20)
-                        )
-                        st.plotly_chart(fig_scatter, use_container_width=True)
-                        
-                    # Preview & download
-                    st.markdown("#### 📄 Diagnostics Output Preview")
-                    st.dataframe(df_upload.head(100), use_container_width=True)
-                    
-                    # Convert to csv
-                    csv_data = df_upload.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Download Complete Diagnostics CSV File",
-                        data=csv_data,
-                        file_name="diagnosed_marine_engine_records.csv",
-                        mime="text/csv"
-                    )
-                    
-        except Exception as e:
-            st.error(f"Error processing CSV: {e}")
-    else:
-        st.info("💡 Upload an engine log CSV file to begin. The file must match the features from the training dataset.")
+                        fig_roc.add_trace(go.Scatter(
+                            x=fpr, y=tpr, mode='lines',
+                            name=f'{m_dict[m_k]["name"]} (AUC={roc_auc:.3f})',
+                            line=dict(color=line_colors.get(m_k, '#cccccc'), width=1.8)
+                        ))
+                fig_roc.add_shape(
+                    type='line', line=dict(dash='dash', color='#475569', width=1.5),
+                    x0=0, x1=1, y0=0, y1=1
+                )
+                fig_roc.update_layout(
+                    xaxis_title="False Positive Rate",
+                    yaxis_title="True Positive Rate",
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#ffffff',
+                    xaxis=dict(gridcolor='rgba(255,255,255,0.05)', range=[-0.02, 1.02]),
+                    yaxis=dict(gridcolor='rgba(255,255,255,0.05)', range=[-0.02, 1.02]),
+                    legend=dict(
+                        orientation="h", yanchor="bottom", y=-0.5, xanchor="center", x=0.5,
+                        bgcolor='rgba(15,23,42,0.6)', bordercolor='rgba(255,255,255,0.08)'
+                    ),
+                    margin=dict(l=30, r=20, t=40, b=30), height=350
+                )
+                st.plotly_chart(fig_roc, use_container_width=True)
+            else:
+                st.info("Test splits data not available for ROC curve calculation.")
+
+elif page_selection == "ℹ About Project":
+    # ------------------ ABOUT PROJECT PAGE ------------------
+    st.markdown("<div class='main-title'>ℹ About the Project</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-subtitle'>Academic final-year project documentation and overview.</div>", unsafe_allow_html=True)
+    
+    col_ab1, col_ab2 = st.columns(2)
+    
+    with col_ab1:
+        st.markdown("""
+        <div class="white-card">
+            <h3>🎯 Project Objective</h3>
+            <p style="font-size: 0.95rem; line-height: 1.5; margin-top: 0.5rem; font-weight:500;">
+                The primary objective of this project is to develop an intelligent, automated predictive maintenance system for marine vessel engines. 
+                By continuously monitoring high-dimensional sensor telemetry, the system aims to identify premature mechanical degradation, valve/cylinder leakage, turbocharger blockages, and lubrication anomalies before they result in catastrophic failure. 
+                This proactive maintenance paradigm minimizes vessel downtime, reduces fuel inefficiencies, and enhances crew safety during open-water operations.
+            </p>
+        </div>
+        
+        <div class="white-card">
+            <h3>📋 Dataset Overview</h3>
+            <p style="font-size: 0.95rem; line-height: 1.5; margin-top: 0.5rem; font-weight:500;">
+                The underlying dataset is generated from physical simulation rigs and telemetry logs of a modern 4-cylinder medium-speed marine diesel propulsion engine. 
+                It contains over 10,000 engine operational records across diverse loads and environmental configurations, capturing baseline signatures alongside induced degradation patterns for 7 core fault conditions.
+            </p>
+        </div>
+        
+        <div class="white-card">
+            <h3>📡 20 Sensor Features</h3>
+            <div style="font-size: 0.88rem; line-height: 1.4; color: #4b5563; font-weight:550; max-height: 180px; overflow-y: auto;">
+                1. <b>Timestamp</b> (Temporal reference index)<br>
+                2. <b>Fault_Label</b> (Class indicator variable)<br>
+                3. <b>Shaft RPM</b> (Propulsion core rotation speed)<br>
+                4. <b>Engine Load</b> (Percentage engine output torque)<br>
+                5. <b>Fuel Flow</b> (Fuel volumetric flow rate)<br>
+                6. <b>Air Pressure</b> (Turbocharger boost air pressure)<br>
+                7. <b>Ambient Temperature</b> (Machinery space temperature)<br>
+                8. <b>Oil Temperature</b> (Lubricating system oil temperature)<br>
+                9. <b>Oil Pressure</b> (Lubricating feed main pressure)<br>
+                10-12. <b>Vibration X, Y, Z</b> (Radial/axial engine block displacement)<br>
+                13-16. <b>Cylinder 1-4 Pressures</b> (Peak combustion cylinder pressures)<br>
+                17-20. <b>Cylinder 1-4 Exhaust Temps</b> (Post-combustion gas temperatures)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_ab2:
+        st.markdown("""
+        <div class="white-card">
+            <h3>🤖 Machine Learning Algorithms Used</h3>
+            <p style="font-size: 0.9rem; line-height: 1.4; margin-top: 0.5rem; color: #4b5563; font-weight: 550;">
+                - <b>Random Forest Classifier</b>: Ensemble model utilizing bootstrap bagging, chosen as the champion model due to high classification robustness.<br>
+                - <b>XGBoost (Extreme Gradient Boosting)</b>: High-performance gradient boosted decision trees.<br>
+                - <b>Decision Tree Classifier</b>: A hierarchical logic rules baseline.<br>
+                - <b>Support Vector Machine (SVM)</b>: RBF-kernel high-dimensional distance separator.<br>
+                - <b>K-Nearest Neighbors (KNN)</b>: Instance similarity neighborhood classification.<br>
+                - <b>Logistic Regression</b>: Linear classification baseline model.
+            </p>
+        </div>
+        
+        <div class="white-card">
+            <h3>📈 Prediction Process</h3>
+            <ol style="font-size: 0.9rem; margin-top: 0.5rem; padding-left: 1.2rem; color: #4b5563; font-weight: 550;">
+                <li>Telemetry values are parsed from sensors.</li>
+                <li>Inputs are standardized using the pre-fit <code>scaler.pkl</code> weights.</li>
+                <li>The standardized feature array is mapped by the active Classifier model.</li>
+                <li>The target class with the highest posterior probability is output as the predicted fault.</li>
+                <li>The corresponding risk severity and maintenance crew recommendation are loaded dynamically.</li>
+            </ol>
+        </div>
+        
+        <div class="white-card">
+            <h3>🎯 Expected Output</h3>
+            <p style="font-size: 0.9rem; line-height: 1.4; margin-top: 0.5rem; color: #4b5563; font-weight: 550;">
+                Output comprises three diagnostic indexes: <b>Engine Health Score</b> (0-100%), <b>Predicted Fault</b> class label, and the <b>Maintenance Crew Checklist</b>.
+            </p>
+        </div>
+        
+        <div class="white-card">
+            <h3>🚀 Future Scope</h3>
+            <p style="font-size: 0.9rem; line-height: 1.4; margin-top: 0.5rem; color: #4b5563; font-weight: 550;">
+                Integration of deep LSTM models for forecasting, edge deployment on PLC units, and real-time Kafka streaming processing.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Footer
+st.markdown("""
+<div style='text-align:center; border-top:1px solid rgba(255,255,255,0.08); margin-top:3rem; padding-top:1.5rem; padding-bottom:1.5rem;'>
+    <div style='font-size:0.95rem; color:#38bdf8; font-weight:700;'>
+        AI-Based Marine Engine Predictive Maintenance Using Sensor Data
+    </div>
+    <div style='font-size:0.8rem; color:#64748b; font-weight:600; margin-top:0.3rem;'>
+        Developed using Python, Streamlit, Plotly, Scikit-learn | Final Year B.Tech Project
+    </div>
+</div>
+""", unsafe_allow_html=True)
