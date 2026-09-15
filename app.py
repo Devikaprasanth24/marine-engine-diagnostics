@@ -113,6 +113,32 @@ st.markdown("""
         border-radius: 10px !important;
     }
     
+    /* Universal Selectbox & Dropdown styling fix */
+    div[data-baseweb="select"] {
+        background-color: #0f172a !important;
+        border: 1px solid #334155 !important;
+        border-radius: 10px !important;
+    }
+    div[data-baseweb="select"] * {
+        color: #f8fafc !important;
+        background-color: transparent !important;
+    }
+    div[data-baseweb="popover"] {
+        background-color: #0f172a !important;
+        border: 1px solid #334155 !important;
+    }
+    div[data-baseweb="popover"] ul {
+        background-color: #0f172a !important;
+    }
+    div[data-baseweb="popover"] li {
+        color: #f8fafc !important;
+        background-color: #0f172a !important;
+    }
+    div[data-baseweb="popover"] li:hover {
+        background-color: #1e293b !important;
+        color: #38bdf8 !important;
+    }
+    
     /* Adjust Streamlit padding */
     .block-container {
         padding-top: 3.5rem !important;
@@ -335,29 +361,42 @@ def init_session_state():
 
 init_session_state()
 
+def run_prediction_pipeline():
+    input_vector = [st.session_state[f"input_{col}"] for col in feature_cols]
+    scaled_vector = scaler.transform([input_vector])
+    
+    sel_key = st.session_state.get('active_model_key', 'random_forest')
+    model_obj = models.get(sel_key, models.get('random_forest'))
+    pred_label = int(model_obj.predict(scaled_vector)[0])
+    if hasattr(model_obj, 'predict_proba'):
+        pred_probs = model_obj.predict_proba(scaled_vector)[0]
+        confidence_score = float(pred_probs[pred_label])
+    else:
+        confidence_score = 0.95
+    
+    if pred_label == 0:
+        health_score = round(95.0 + (confidence_score * 4.8), 1)
+    else:
+        health_score = round(max(5.0, 90.0 - (confidence_score * 45.0)), 1)
+        
+    st.session_state['latest_pred'] = pred_label
+    st.session_state['latest_conf'] = confidence_score
+    st.session_state['latest_health'] = health_score
+    return pred_label, confidence_score, health_score
+
 # Presets loading logic
 def load_preset(scenario_name):
-    st.session_state['predicted_clicked'] = False
-    if scenario_name == "Normal Operation":
-        st.session_state['input_Shaft_RPM'] = 960.0
-        st.session_state['input_Engine_Load'] = 75.0
-        st.session_state['input_Fuel_Flow'] = 130.0
-        st.session_state['input_Air_Pressure'] = 1.15
-        st.session_state['input_Ambient_Temp'] = 27.0
-        st.session_state['input_Oil_Temp'] = 78.0
-        st.session_state['input_Oil_Pressure'] = 3.4
-        st.session_state['input_Vibration_X'] = 0.06
-        st.session_state['input_Vibration_Y'] = 0.05
-        st.session_state['input_Vibration_Z'] = 0.07
-        st.session_state['input_Cylinder1_Pressure'] = 145.0
-        st.session_state['input_Cylinder1_Exhaust_Temp'] = 420.0
-        st.session_state['input_Cylinder2_Pressure'] = 145.0
-        st.session_state['input_Cylinder2_Exhaust_Temp'] = 420.0
-        st.session_state['input_Cylinder3_Pressure'] = 145.0
-        st.session_state['input_Cylinder3_Exhaust_Temp'] = 420.0
-        st.session_state['input_Cylinder4_Pressure'] = 145.0
-        st.session_state['input_Cylinder4_Exhaust_Temp'] = 420.0
-    elif scenario_name == "Fuel Delivery System Anomaly":
+    defaults = {
+        'Shaft_RPM': 960.0, 'Engine_Load': 75.0, 'Fuel_Flow': 130.0, 'Air_Pressure': 1.15,
+        'Ambient_Temp': 27.0, 'Oil_Temp': 78.0, 'Oil_Pressure': 3.4, 'Vibration_X': 0.06,
+        'Vibration_Y': 0.05, 'Vibration_Z': 0.07, 'Cylinder1_Pressure': 145.0, 'Cylinder1_Exhaust_Temp': 420.0,
+        'Cylinder2_Pressure': 145.0, 'Cylinder2_Exhaust_Temp': 420.0, 'Cylinder3_Pressure': 145.0,
+        'Cylinder3_Exhaust_Temp': 420.0, 'Cylinder4_Pressure': 145.0, 'Cylinder4_Exhaust_Temp': 420.0
+    }
+    for k, v in defaults.items():
+        st.session_state[f"input_{k}"] = v
+
+    if scenario_name == "Fuel Delivery System Anomaly":
         st.session_state['input_Fuel_Flow'] = 188.0
         st.session_state['input_Engine_Load'] = 45.0
         st.session_state['input_Shaft_RPM'] = 820.0
@@ -383,6 +422,9 @@ def load_preset(scenario_name):
     elif scenario_name == "Lubrication Pressure & Axial Vibration Fault":
         st.session_state['input_Oil_Pressure'] = 0.55
         st.session_state['input_Vibration_Z'] = 0.54
+
+    run_prediction_pipeline()
+    st.session_state['predicted_clicked'] = True
 
 # Function to render visual "Choose a Model" UI component matching reference interface
 def render_choose_a_model_ui():
@@ -689,41 +731,15 @@ elif page_selection == "🔍 Prediction":
     st.write("")
     if st.button("🚀 Predict Engine Fault"):
         st.session_state['predicted_clicked'] = True
-        
-        # Load input values into vector
-        input_vector = [st.session_state[f"input_{col}"] for col in feature_cols]
-        scaled_vector = scaler.transform([input_vector])
-        
-        # Active selected classifier prediction from top 4 models
-        sel_key = st.session_state.get('active_model_key', 'random_forest')
-        model_obj = models.get(sel_key, models.get('random_forest'))
-        pred_label = int(model_obj.predict(scaled_vector)[0])
-        if hasattr(model_obj, 'predict_proba'):
-            pred_probs = model_obj.predict_proba(scaled_vector)[0]
-            confidence_score = float(pred_probs[pred_label])
-        else:
-            confidence_score = 0.95
-        
-        # Derive engine health score
-        if pred_label == 0:
-            health_score = 95.0 + (confidence_score * 4.8)
-        else:
-            # Anomaly health degradation
-            health_score = max(5.0, 90.0 - (confidence_score * 45.0) - (np.random.random() * 8.0))
-            
-        st.session_state['latest_pred'] = pred_label
-        st.session_state['latest_conf'] = confidence_score
-        st.session_state['latest_health'] = health_score
+        run_prediction_pipeline()
+        st.success("Diagnostic model prediction executed successfully!")
 
-    # Result Cards Display (After clicking Predict)
-    if st.session_state['predicted_clicked']:
-        pred_label = st.session_state['latest_pred']
-        confidence_score = st.session_state['latest_conf']
-        health_score = st.session_state['latest_health']
-        
-        fault_info = FAULT_CLASSES[pred_label]
-        color = fault_info['color']
-        severity = fault_info['severity']
+    # Live prediction results rendering
+    pred_label, confidence_score, health_score = run_prediction_pipeline()
+    
+    fault_info = FAULT_CLASSES[pred_label]
+    color = fault_info['color']
+    severity = fault_info['severity']
         
         # Class styling properties
         if severity == "Healthy":
