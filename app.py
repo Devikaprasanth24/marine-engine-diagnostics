@@ -741,49 +741,49 @@ elif page_selection == "🔍 Prediction":
     color = fault_info['color']
     severity = fault_info['severity']
         
-        # Class styling properties
-        if severity == "Healthy":
-            card_bg = "rgba(16, 185, 129, 0.08)"
-            card_border = "#10b981"
-            card_text = "#6ee7b7"
-        elif severity == "Warning":
-            card_bg = "rgba(245, 158, 11, 0.08)"
-            card_border = "#f59e0b"
-            card_text = "#fde047"
-        else:
-            card_bg = "rgba(239, 68, 68, 0.08)"
-            card_border = "#ef4444"
-            card_text = "#fca5a5"
-            
-        # Display Result Indicator cards
-        st.markdown("<div class='section-header'>📊 Classification Result Metrics</div>", unsafe_allow_html=True)
+    # Class styling properties
+    if severity == "Healthy":
+        card_bg = "rgba(16, 185, 129, 0.08)"
+        card_border = "#10b981"
+        card_text = "#6ee7b7"
+    elif severity == "Warning":
+        card_bg = "rgba(245, 158, 11, 0.08)"
+        card_border = "#f59e0b"
+        card_text = "#fde047"
+    else:
+        card_bg = "rgba(239, 68, 68, 0.08)"
+        card_border = "#ef4444"
+        card_text = "#fca5a5"
         
-        st.markdown(f"""
-        <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
-            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
-                <h3>Predicted Fault</h3>
-                <p class="card-value" style="color: {color} !important; font-size: 1.25rem !important; line-height: 1.4;">{fault_info['name']}</p>
-                <p class="card-desc">Output Target Diagnostics</p>
-            </div>
-            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
-                <h3>Prediction Confidence</h3>
-                <p class="card-value">{confidence_score:.2%}</p>
-                <p class="card-desc">Model Output Classification probability</p>
-            </div>
-            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
-                <h3>Engine Health</h3>
-                <p class="card-value" style="color: {color} !important;">{health_score:.1f}%</p>
-                <p class="card-desc">Propulsion Plant Health Index</p>
-            </div>
+    # Display Result Indicator cards
+    st.markdown("<div class='section-header'>📊 Classification Result Metrics</div>", unsafe_allow_html=True)
+    
+    st.markdown(f"""
+    <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+        <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
+            <h3>Predicted Fault</h3>
+            <p class="card-value" style="color: {color} !important; font-size: 1.25rem !important; line-height: 1.4;">{fault_info['name']}</p>
+            <p class="card-desc">Output Target Diagnostics</p>
         </div>
-        
-        <div class="white-card" style="border-left: 5px solid {card_border} !important; background: {card_bg} !important; border: 1px solid rgba(255,255,255,0.08) !important; border-left: 5px solid {card_border} !important; padding: 1.5rem !important; margin-top: 1rem;">
-            <h3 style="color: {card_text} !important; font-size: 0.95rem !important;">🛠️ Maintenance Directives & Recommendation</h3>
-            <p style="font-size: 1.05rem !important; font-weight: 500 !important; color: #f8fafc !important; margin-top: 0.6rem; margin-bottom: 0; line-height: 1.6;">
-                {fault_info['rec']}
-            </p>
+        <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
+            <h3>Prediction Confidence</h3>
+            <p class="card-value">{confidence_score:.2%}</p>
+            <p class="card-desc">Model Output Classification probability</p>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
+            <h3>Engine Health</h3>
+            <p class="card-value" style="color: {color} !important;">{health_score:.1f}%</p>
+            <p class="card-desc">Propulsion Plant Health Index</p>
+        </div>
+    </div>
+    
+    <div class="white-card" style="border-left: 5px solid {card_border} !important; background: {card_bg} !important; border: 1px solid rgba(255,255,255,0.08) !important; border-left: 5px solid {card_border} !important; padding: 1.5rem !important; margin-top: 1rem;">
+        <h3 style="color: {card_text} !important; font-size: 0.95rem !important;">🛠️ Maintenance Directives & Recommendation</h3>
+        <p style="font-size: 1.05rem !important; font-weight: 500 !important; color: #f8fafc !important; margin-top: 0.6rem; margin-bottom: 0; line-height: 1.6;">
+            {fault_info['rec']}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 elif page_selection == "📊 Model Performance":
     # ------------------ MODEL PERFORMANCE PAGE ------------------
