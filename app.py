@@ -368,10 +368,13 @@ def run_prediction_pipeline():
     sel_key = st.session_state.get('active_model_key', 'random_forest')
     model_obj = models.get(sel_key, models.get('random_forest'))
     pred_label = int(model_obj.predict(scaled_vector)[0])
+    
     if hasattr(model_obj, 'predict_proba'):
         pred_probs = model_obj.predict_proba(scaled_vector)[0]
         confidence_score = float(pred_probs[pred_label])
     else:
+        pred_probs = np.zeros(8)
+        pred_probs[pred_label] = 1.0
         confidence_score = 0.95
     
     if pred_label == 0:
@@ -382,7 +385,9 @@ def run_prediction_pipeline():
     st.session_state['latest_pred'] = pred_label
     st.session_state['latest_conf'] = confidence_score
     st.session_state['latest_health'] = health_score
-    return pred_label, confidence_score, health_score
+    st.session_state['latest_probs'] = pred_probs
+    
+    return pred_label, confidence_score, health_score, pred_probs
 
 # Presets loading logic
 def load_preset(scenario_name):
@@ -559,35 +564,41 @@ page_selection = st.sidebar.radio(
     ]
 )
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🧠 Model Selection")
-active_model_disp = st.sidebar.selectbox(
-    "Active Classifier Algorithm:",
-    [
-        "Support Vector Machine (SVM)",
-        "Random Forest",
-        "XGBoost",
-        "Decision Tree"
-    ],
-    index=0
-)
+MODEL_OPTIONS = [
+    "Support Vector Machine (SVM)",
+    "Random Forest",
+    "XGBoost",
+    "Decision Tree"
+]
 
-model_key_map = {
+MODEL_KEY_MAP = {
     "Support Vector Machine (SVM)": "svm",
     "Random Forest": "random_forest",
     "XGBoost": "xgboost",
     "Decision Tree": "decision_tree"
 }
+MODEL_NAME_MAP = {v: k for k, v in MODEL_KEY_MAP.items()}
 
 if 'active_model_key' not in st.session_state:
-    st.session_state['active_model_key'] = model_key_map[active_model_disp]
+    st.session_state['active_model_key'] = 'svm'
 
-if active_model_disp in model_key_map:
+current_key = st.session_state['active_model_key']
+current_disp_name = MODEL_NAME_MAP.get(current_key, "Support Vector Machine (SVM)")
+current_index = MODEL_OPTIONS.index(current_disp_name) if current_disp_name in MODEL_OPTIONS else 0
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🧠 Model Selection")
+active_model_disp = st.sidebar.selectbox(
+    "Active Classifier Algorithm:",
+    MODEL_OPTIONS,
+    index=current_index,
+    key="sidebar_active_model_selectbox"
+)
+
+if MODEL_KEY_MAP[active_model_disp] != st.session_state['active_model_key']:
+    st.session_state['active_model_key'] = MODEL_KEY_MAP[active_model_disp]
     st.session_state['active_model_name'] = active_model_disp
-    # Synced key if changed in selectbox
-    if st.session_state.get('last_selectbox') != active_model_disp:
-        st.session_state['active_model_key'] = model_key_map[active_model_disp]
-        st.session_state['last_selectbox'] = active_model_disp
+    st.rerun()
 
 # Render Pages
 if page_selection == "🏠 Dashboard":
@@ -735,7 +746,7 @@ elif page_selection == "🔍 Prediction":
         st.success("Diagnostic model prediction executed successfully!")
 
     # Live prediction results rendering
-    pred_label, confidence_score, health_score = run_prediction_pipeline()
+    pred_label, confidence_score, health_score, pred_probs = run_prediction_pipeline()
     
     fault_info = FAULT_CLASSES[pred_label]
     color = fault_info['color']
@@ -766,9 +777,9 @@ elif page_selection == "🔍 Prediction":
             <p class="card-desc">Output Target Diagnostics</p>
         </div>
         <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
-            <h3>Prediction Confidence</h3>
+            <h3>Prediction Confidence ({st.session_state.get('active_model_name', 'Active Model')})</h3>
             <p class="card-value">{confidence_score:.2%}</p>
-            <p class="card-desc">Model Output Classification probability</p>
+            <p class="card-desc">Model Classification probability</p>
         </div>
         <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
             <h3>Engine Health</h3>
@@ -776,7 +787,66 @@ elif page_selection == "🔍 Prediction":
             <p class="card-desc">Propulsion Plant Health Index</p>
         </div>
     </div>
+    """, unsafe_allow_html=True)
+
+    # Interactive Visualizers: Fault Probabilities & Health Gauge
+    col_vis1, col_vis2 = st.columns([6, 4])
     
+    with col_vis1:
+        class_names = [FAULT_CLASSES[i]['name'] for i in range(8)]
+        df_probs = pd.DataFrame({
+            'Fault Diagnosis Class': class_names,
+            'Probability': pred_probs
+        })
+        
+        bar_colors = ['#10b981' if i == 0 else ('#ef4444' if i == pred_label else '#334155') for i in range(8)]
+        
+        fig_prob = px.bar(
+            df_probs, y='Fault Diagnosis Class', x='Probability', orientation='h',
+            title=f'🎯 {st.session_state.get("active_model_name", "Active Model")} Fault Class Probabilities',
+            text_auto='.1%',
+            labels={'Probability': 'Probability', 'Fault Diagnosis Class': ''}
+        )
+        fig_prob.update_traces(marker_color=bar_colors, textposition='outside', textfont=dict(color='#f8fafc', size=11, family='Inter'))
+        fig_prob.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#f8fafc', family='Inter'),
+            xaxis=dict(range=[0, 1.18], gridcolor='rgba(255,255,255,0.08)', tickfont=dict(color='#94a3b8')),
+            yaxis=dict(autorange="reversed", tickfont=dict(color='#f8fafc', size=11)),
+            margin=dict(l=10, r=20, t=40, b=20), height=340
+        )
+        st.plotly_chart(fig_prob, use_container_width=True)
+        
+    with col_vis2:
+        gauge_color = "#10b981" if health_score >= 80 else ("#f59e0b" if health_score >= 50 else "#ef4444")
+        
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = health_score,
+            number = {'suffix': "%", 'font': {'color': gauge_color, 'size': 36, 'family': 'Inter'}},
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "⚓ Engine Health Index Gauge", 'font': {'size': 15, 'color': '#f8fafc', 'family': 'Inter'}},
+            gauge = {
+                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#475569", 'tickfont': {'color': '#94a3b8'}},
+                'bar': {'color': gauge_color},
+                'bgcolor': "rgba(15, 23, 42, 0.6)",
+                'borderwidth': 1,
+                'bordercolor': "rgba(255, 255, 255, 0.1)",
+                'steps': [
+                    {'range': [0, 50], 'color': 'rgba(239, 68, 68, 0.15)'},
+                    {'range': [50, 80], 'color': 'rgba(245, 158, 11, 0.15)'},
+                    {'range': [80, 100], 'color': 'rgba(16, 185, 129, 0.15)'}
+                ],
+            }
+        ))
+        fig_gauge.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#f8fafc', family='Inter'),
+            margin=dict(l=20, r=20, t=50, b=20), height=340
+        )
+        st.plotly_chart(fig_gauge, use_container_width=True)
+
+    st.markdown(f"""
     <div class="white-card" style="border-left: 5px solid {card_border} !important; background: {card_bg} !important; border: 1px solid rgba(255,255,255,0.08) !important; border-left: 5px solid {card_border} !important; padding: 1.5rem !important; margin-top: 1rem;">
         <h3 style="color: {card_text} !important; font-size: 0.95rem !important;">🛠️ Maintenance Directives & Recommendation</h3>
         <p style="font-size: 1.05rem !important; font-weight: 500 !important; color: #f8fafc !important; margin-top: 0.6rem; margin-bottom: 0; line-height: 1.6;">
