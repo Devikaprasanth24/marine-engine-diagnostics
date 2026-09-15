@@ -654,44 +654,55 @@ pred_label, confidence_score, health_score, pred_probs = run_prediction_pipeline
 if page_selection == "🏠 Dashboard":
     # ------------------ HOME PAGE ------------------
     st.markdown("<div class='main-title'>⚓ Marine Engine Predictive Maintenance System</div>", unsafe_allow_html=True)
-    st.markdown("<div class='main-subtitle'>AI-Based Fault Detection and Engine Health Monitoring</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-subtitle'>Real-Time Sensor Telemetry & Multi-Model Machine Learning Fault Diagnostics</div>", unsafe_allow_html=True)
     
-    col_h1, col_h2 = st.columns([7, 3])
+    fault_info = FAULT_CLASSES[pred_label]
+    status_color = fault_info['color']
+    severity_label = fault_info['severity']
+    status_icon = "🟢" if severity_label == "Healthy" else ("🟠" if severity_label == "Warning" else "🔴")
+    active_m_disp = st.session_state.get('active_model_name', 'Decision Tree')
     
-    with col_h1:
-        fault_info = FAULT_CLASSES[pred_label]
-        status_color = fault_info['color']
-        severity_label = fault_info['severity']
-        status_icon = "🟢" if severity_label == "Healthy" else ("🟠" if severity_label == "Warning" else "🔴")
-        
+    # 4-Column Compact Metric Banner
+    col_mb1, col_mb2, col_mb3, col_mb4 = st.columns(4)
+    
+    with col_mb1:
         render_html(f"""
-        <div style="display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
-            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 4px solid {status_color} !important;">
-                <h3>Engine Status</h3>
-                <p class="card-value" style="color: {status_color} !important;">{status_icon} {severity_label}</p>
-                <p class="card-desc">Overall Severity Index</p>
-            </div>
-            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 4px solid {status_color} !important;">
-                <h3>Predicted Fault</h3>
-                <p class="card-value" style="font-size: 1.15rem !important; line-height: 1.4; color: #f8fafc !important;">{fault_info['name']}</p>
-                <p class="card-desc">Target Classifier Diagnosis ({st.session_state.get('active_model_name', 'Active Model')})</p>
-            </div>
-            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 4px solid {status_color} !important;">
-                <h3>Engine Health</h3>
-                <p class="card-value" style="color: {status_color} !important;">{health_score:.1f}%</p>
-                <p class="card-desc">Physical Health Index</p>
-            </div>
+        <div class="white-card" style="border-top: 4px solid {status_color} !important; padding: 1.1rem !important; margin-bottom: 0.5rem !important;">
+            <h3>Engine Status</h3>
+            <p class="card-value" style="color: {status_color} !important; font-size: 1.35rem !important;">{status_icon} {severity_label}</p>
+            <p class="card-desc">Overall Severity Index</p>
+        </div>
+        """)
+        
+    with col_mb2:
+        render_html(f"""
+        <div class="white-card" style="border-top: 4px solid {status_color} !important; padding: 1.1rem !important; margin-bottom: 0.5rem !important;">
+            <h3>Predicted Fault</h3>
+            <p class="card-value" style="font-size: 1.1rem !important; line-height: 1.3; color: #f8fafc !important;">{fault_info['name']}</p>
+            <p class="card-desc">Target Classifier Diagnosis</p>
+        </div>
+        """)
+        
+    with col_mb3:
+        render_html(f"""
+        <div class="white-card" style="border-top: 4px solid {status_color} !important; padding: 1.1rem !important; margin-bottom: 0.5rem !important;">
+            <h3>Engine Health</h3>
+            <p class="card-value" style="color: {status_color} !important; font-size: 1.35rem !important;">{health_score:.1f}%</p>
+            <p class="card-desc">Physical Health Index</p>
+        </div>
+        """)
+        
+    with col_mb4:
+        render_html(f"""
+        <div class="white-card" style="border-top: 4px solid #38bdf8 !important; padding: 1.1rem !important; margin-bottom: 0.5rem !important;">
+            <h3>Active Classifier</h3>
+            <p class="card-value" style="color: #38bdf8 !important; font-size: 1.15rem !important; line-height: 1.3;">{active_m_disp}</p>
+            <p class="card-desc">Selected ML Algorithm</p>
         </div>
         """)
 
-    with col_h2:
-        if os.path.exists("ship_engine.png"):
-            st.image("ship_engine.png", use_container_width=True, caption="Ship Propulsion Engine Illustration")
-        else:
-            st.warning("Ship engine image asset not found.")
-
     # Interactive Real-Time Telemetry Monitor Summary Card Grid
-    st.markdown("<div class='section-header'>📡 Live Telemetry Sensor Status</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header' style='margin-top: 1.0rem;'>📡 Live Telemetry Sensor Status</div>", unsafe_allow_html=True)
     
     col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns(5)
     sens_summary = [
@@ -706,15 +717,15 @@ if page_selection == "🏠 Dashboard":
         st_label, st_col, st_bg = check_sensor_status(key, val)
         with col:
             render_html(f"""
-            <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 1.0rem; text-align: center;">
+            <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 0.9rem 0.5rem; text-align: center;">
                 <div style="font-size: 0.78rem; color: #94a3b8; font-weight: 600;">{name}</div>
-                <div style="font-size: 1.3rem; font-weight: 800; color: #ffffff; margin: 0.3rem 0;">{val} <span style="font-size: 0.75rem; color: #64748b;">{unit}</span></div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: #ffffff; margin: 0.2rem 0;">{val} <span style="font-size: 0.70rem; color: #64748b;">{unit}</span></div>
                 <span class="status-pill" style="background-color: {st_bg}; color: {st_col};">{st_label}</span>
             </div>
             """)
 
     # Interactive Live Cylinder Combustion & Exhaust Monitor
-    st.markdown("<div class='section-header'>📊 Live Cylinder Combustion & Exhaust Monitor</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header' style='margin-top: 1.2rem;'>📊 Live Cylinder Combustion & Exhaust Monitor</div>", unsafe_allow_html=True)
     col_dash_c1, col_dash_c2 = st.columns(2)
     
     with col_dash_c1:
@@ -737,7 +748,7 @@ if page_selection == "🏠 Dashboard":
         )
         fig_cp.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#ffffff', margin=dict(l=20, r=20, t=40, b=20), height=280,
+            font_color='#ffffff', margin=dict(l=20, r=20, t=35, b=20), height=260,
             coloraxis_showscale=False
         )
         fig_cp.update_traces(textposition='outside', textfont=dict(color='#ffffff', size=11))
@@ -763,10 +774,9 @@ if page_selection == "🏠 Dashboard":
         )
         fig_ct.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#ffffff', margin=dict(l=20, r=20, t=40, b=20), height=280,
+            font_color='#ffffff', margin=dict(l=20, r=20, t=35, b=20), height=260,
             coloraxis_showscale=False
         )
-        fig_ct.update_traces(textposition='outside', textfont=dict(color='#ffffff', size=11))
         st.plotly_chart(fig_ct, use_container_width=True)
 
 elif page_selection == "🔍 Prediction":
