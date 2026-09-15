@@ -43,23 +43,8 @@ print("Saving scaler to scaler.pkl...")
 with open("scaler.pkl", "wb") as f:
     pickle.dump(sc, f)
 
-# Dictionary of models to train
+# Dictionary of models to train (EXACTLY 4 models)
 models_to_train = {
-    'logistic_regression': {
-        'name': 'Logistic Regression',
-        'model': LogisticRegression(max_iter=1000, random_state=42),
-        'filename': 'logistic_model.pkl'
-    },
-    'random_forest': {
-        'name': 'Random Forest',
-        'model': RandomForestClassifier(n_estimators=100, random_state=42),
-        'filename': 'random_forest_model.pkl'
-    },
-    'xgboost': {
-        'name': 'XGBoost',
-        'model': XGBClassifier(random_state=42, eval_metric='mlogloss'),
-        'filename': 'xgboost_model.pkl'
-    },
     'decision_tree': {
         'name': 'Decision Tree',
         'model': DecisionTreeClassifier(random_state=42),
@@ -70,10 +55,15 @@ models_to_train = {
         'model': SVC(kernel='rbf', probability=True, random_state=42),
         'filename': 'svm_model.pkl'
     },
-    'knn': {
-        'name': 'K-Nearest Neighbors',
-        'model': KNeighborsClassifier(n_neighbors=5),
-        'filename': 'knn_model.pkl'
+    'random_forest': {
+        'name': 'Random Forest',
+        'model': RandomForestClassifier(n_estimators=100, random_state=42),
+        'filename': 'random_forest_model.pkl'
+    },
+    'xgboost': {
+        'name': 'XGBoost',
+        'model': XGBClassifier(random_state=42, eval_metric='mlogloss'),
+        'filename': 'xgboost_model.pkl'
     }
 }
 
