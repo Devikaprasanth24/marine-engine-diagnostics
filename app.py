@@ -601,20 +601,21 @@ def render_choose_a_model_ui():
 
 
 # Sidebar Navigation Panel
-render_html("""
-<div style="padding: 0.2rem 0 1.0rem 0;">
-    <div style="font-size: 1.25rem; font-weight: 800; color: #38bdf8; letter-spacing: 0.02em;">
-        ⚓ NAUTILUS OS
+with st.sidebar:
+    render_html("""
+    <div style="padding: 0.2rem 0 0.8rem 0;">
+        <div style="font-size: 1.25rem; font-weight: 800; color: #38bdf8; letter-spacing: 0.02em;">
+            ⚓ NAUTILUS OS
+        </div>
+        <div style="font-size: 0.74rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px;">
+            Marine Diagnostics Console
+        </div>
     </div>
-    <div style="font-size: 0.74rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px;">
-        Marine Diagnostics Console
+    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 0.45rem 0.75rem; margin-bottom: 1.0rem; font-size: 0.76rem; color: #34d399; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+        <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #10b981;"></span>
+        TELEMETRY LINK: ONLINE
     </div>
-</div>
-<div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 0.45rem 0.75rem; margin-bottom: 1.2rem; font-size: 0.76rem; color: #34d399; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
-    <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #10b981;"></span>
-    TELEMETRY LINK: ONLINE
-</div>
-""")
+    """)
 
 page_selection = st.sidebar.radio(
     "Navigation Console",
@@ -689,36 +690,6 @@ if page_selection == "🏠 Dashboard":
         else:
             st.warning("Ship engine image asset not found.")
 
-    # Predictive Maintenance Workflow
-    st.markdown("<div class='section-header'>🔄 Predictive Maintenance Workflow</div>", unsafe_allow_html=True)
-    render_html(f"""
-    <div class="workflow-container">
-        <div class="workflow-step">
-            <div style="font-size: 1.8rem;">🔌</div>
-            <h4>Sensor Data</h4>
-            <p>18 real-time telemetry channels from cylinders, oil sump, and turbochargers.</p>
-        </div>
-        <div class="workflow-arrow">➡</div>
-        <div class="workflow-step">
-            <div style="font-size: 1.8rem;">🧠</div>
-            <h4>Active ML Model</h4>
-            <p>Standardized scaling with <b>{st.session_state.get('active_model_name', 'Trained Model')}</b> classification.</p>
-        </div>
-        <div class="workflow-arrow">➡</div>
-        <div class="workflow-step">
-            <div style="font-size: 1.8rem;">🔍</div>
-            <h4>Fault Prediction</h4>
-            <p>Detection of normal operations or 7 unique mechanical anomaly diagnoses.</p>
-        </div>
-        <div class="workflow-arrow">➡</div>
-        <div class="workflow-step">
-            <div style="font-size: 1.8rem;">🛠️</div>
-            <h4>Maintenance Rec</h4>
-            <p>Immediate action checklist and priority response crew directives.</p>
-        </div>
-    </div>
-    """)
-
     # Interactive Real-Time Telemetry Monitor Summary Card Grid
     st.markdown("<div class='section-header'>📡 Live Telemetry Sensor Status</div>", unsafe_allow_html=True)
     
@@ -741,6 +712,62 @@ if page_selection == "🏠 Dashboard":
                 <span class="status-pill" style="background-color: {st_bg}; color: {st_col};">{st_label}</span>
             </div>
             """)
+
+    # Interactive Live Cylinder Combustion & Exhaust Monitor
+    st.markdown("<div class='section-header'>📊 Live Cylinder Combustion & Exhaust Monitor</div>", unsafe_allow_html=True)
+    col_dash_c1, col_dash_c2 = st.columns(2)
+    
+    with col_dash_c1:
+        cyl_pressures = [
+            st.session_state['input_Cylinder1_Pressure'],
+            st.session_state['input_Cylinder2_Pressure'],
+            st.session_state['input_Cylinder3_Pressure'],
+            st.session_state['input_Cylinder4_Pressure']
+        ]
+        df_cp = pd.DataFrame({
+            'Cylinder': ['Cyl 1', 'Cyl 2', 'Cyl 3', 'Cyl 4'],
+            'Pressure (bar)': cyl_pressures
+        })
+        fig_cp = px.bar(
+            df_cp, x='Cylinder', y='Pressure (bar)',
+            title='Combustion Pressures across Cylinders 1-4',
+            text_auto='.1f',
+            color='Pressure (bar)',
+            color_continuous_scale='Tealgrn'
+        )
+        fig_cp.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font_color='#ffffff', margin=dict(l=20, r=20, t=40, b=20), height=280,
+            coloraxis_showscale=False
+        )
+        fig_cp.update_traces(textposition='outside', textfont=dict(color='#ffffff', size=11))
+        st.plotly_chart(fig_cp, use_container_width=True)
+
+    with col_dash_c2:
+        cyl_temps = [
+            st.session_state['input_Cylinder1_Exhaust_Temp'],
+            st.session_state['input_Cylinder2_Exhaust_Temp'],
+            st.session_state['input_Cylinder3_Exhaust_Temp'],
+            st.session_state['input_Cylinder4_Exhaust_Temp']
+        ]
+        df_ct = pd.DataFrame({
+            'Cylinder': ['Cyl 1', 'Cyl 2', 'Cyl 3', 'Cyl 4'],
+            'Exhaust Temp (°C)': cyl_temps
+        })
+        fig_ct = px.bar(
+            df_ct, x='Cylinder', y='Exhaust Temp (°C)',
+            title='Exhaust Gas Temperatures across Cylinders 1-4',
+            text_auto='.1f',
+            color='Exhaust Temp (°C)',
+            color_continuous_scale='Oranges'
+        )
+        fig_ct.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font_color='#ffffff', margin=dict(l=20, r=20, t=40, b=20), height=280,
+            coloraxis_showscale=False
+        )
+        fig_ct.update_traces(textposition='outside', textfont=dict(color='#ffffff', size=11))
+        st.plotly_chart(fig_ct, use_container_width=True)
 
 elif page_selection == "🔍 Prediction":
     # ------------------ PREDICTION PAGE ------------------
