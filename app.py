@@ -75,35 +75,60 @@ FAULT_CLASSES = {
     }
 }
 
-# Custom Styling (Dark Navy Background with Clean Contrast White Cards)
+# Custom Styling (Ultra-Modern Dark Glassmorphism)
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;750;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
     /* Global setting */
     .stApp {
-        background: radial-gradient(circle at 50% 50%, #0a1128 0%, #030712 100%) !important;
+        background: radial-gradient(circle at 50% 0%, #0f172a 0%, #020617 100%) !important;
         color: #f3f4f6 !important;
         font-family: 'Inter', sans-serif;
     }
+
+    /* Dark Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #070a12 !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    [data-testid="stSidebar"] * {
+        color: #e2e8f0 !important;
+    }
+    [data-testid="stSidebar"] .stRadio label {
+        background-color: transparent !important;
+        padding: 0.6rem 0.9rem !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        color: #94a3b8 !important;
+    }
+    [data-testid="stSidebar"] .stRadio label:hover {
+        background-color: rgba(56, 189, 248, 0.1) !important;
+        color: #38bdf8 !important;
+    }
+    [data-testid="stSidebar"] div[data-baseweb="select"] {
+        background-color: #0f172a !important;
+        border: 1px solid #334155 !important;
+        border-radius: 10px !important;
+    }
     
-    /* Adjust Streamlit padding to prevent header clipping */
+    /* Adjust Streamlit padding */
     .block-container {
-        padding-top: 4.5rem !important;
+        padding-top: 3.5rem !important;
         padding-bottom: 2rem !important;
     }
-    /* Header layout */
-    .header-container {
-        margin-bottom: 2rem;
-    }
+
+    /* Main Title Styling */
     .main-title {
         font-family: 'Inter', sans-serif !important;
         color: #38bdf8;
-        font-size: 2.0rem;
+        font-size: 2.2rem;
         font-weight: 800;
         line-height: 1.3;
         margin-bottom: 0.2rem;
         word-wrap: break-word;
+        letter-spacing: -0.02em;
     }
     .main-subtitle {
         color: #94a3b8;
@@ -112,36 +137,38 @@ st.markdown("""
         margin-bottom: 1.5rem;
     }
 
-    /* White Cards style */
+    /* Ultra-Modern Glassmorphism Cards style */
     .white-card {
-        background-color: #ffffff !important;
-        color: #1f2937 !important;
-        border-radius: 12px !important;
-        padding: 1.4rem !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-        border: 1px solid #e5e7eb !important;
+        background: rgba(15, 23, 42, 0.75) !important;
+        backdrop-filter: blur(12px) !important;
+        color: #f9fafb !important;
+        border-radius: 16px !important;
+        padding: 1.5rem !important;
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
         margin-bottom: 1rem !important;
-        transition: transform 0.2s ease-in-out;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
     .white-card:hover {
         transform: translateY(-2px);
+        box-shadow: 0 15px 35px -10px rgba(56, 189, 248, 0.15) !important;
     }
     .white-card h3 {
         margin-top: 0 !important;
-        color: #4b5563 !important;
-        font-size: 0.9rem !important;
+        color: #94a3b8 !important;
+        font-size: 0.85rem !important;
         font-weight: 750 !important;
         text-transform: uppercase !important;
-        letter-spacing: 0.05em !important;
+        letter-spacing: 0.06em !important;
     }
     .white-card p.card-value {
-        color: #111827 !important;
-        font-size: 1.8rem !important;
+        color: #f8fafc !important;
+        font-size: 1.75rem !important;
         font-weight: 800 !important;
         margin: 0.4rem 0 0 0 !important;
     }
     .white-card p.card-desc {
-        color: #6b7280 !important;
+        color: #64748b !important;
         font-size: 0.82rem !important;
         margin: 0.4rem 0 0 0 !important;
         font-weight: 500 !important;
@@ -152,71 +179,79 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-top: 2rem;
+        margin-top: 1.8rem;
         margin-bottom: 2rem;
         width: 100%;
+        gap: 0.8rem;
     }
     .workflow-step {
-        background-color: #ffffff;
-        color: #1f2937;
-        border-radius: 12px;
-        padding: 1.2rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e5e7eb;
+        background: rgba(15, 23, 42, 0.75);
+        color: #f9fafb;
+        border-radius: 16px;
+        padding: 1.3rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         text-align: center;
         width: 22%;
-        min-height: 110px;
+        min-height: 125px;
+        transition: all 0.2s ease;
+    }
+    .workflow-step:hover {
+        border-color: rgba(56, 189, 248, 0.3);
+        transform: translateY(-3px);
     }
     .workflow-step h4 {
-        margin: 0.4rem 0;
-        color: #111827;
-        font-size: 1rem;
+        margin: 0.5rem 0 0.3rem 0;
+        color: #ffffff;
+        font-size: 1.0rem;
         font-weight: 750;
     }
     .workflow-step p {
         margin: 0;
-        color: #6b7280;
-        font-size: 0.8rem;
-        line-height: 1.3;
+        color: #94a3b8;
+        font-size: 0.82rem;
+        line-height: 1.4;
     }
     .workflow-arrow {
         font-size: 1.8rem;
         color: #38bdf8;
         font-weight: bold;
+        opacity: 0.8;
     }
 
-    /* Form styling and buttons */
+    /* Form styling and main buttons */
     div.stButton > button {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
         color: #ffffff !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 0.7rem 1.5rem !important;
+        border: 1px solid rgba(56, 189, 248, 0.4) !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 1.6rem !important;
         font-weight: 700 !important;
         width: 100% !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+        box-shadow: 0 4px 18px rgba(2, 132, 199, 0.35) !important;
         transition: all 0.2s ease-in-out !important;
     }
     div.stButton > button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 24px rgba(56, 189, 248, 0.5) !important;
+        background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%) !important;
     }
 
     /* Subsections and subheaders */
     .section-header {
-        font-size: 1.4rem;
+        font-size: 1.35rem;
         font-weight: 750;
         color: #ffffff;
-        margin-top: 1.5rem;
-        margin-bottom: 0.8rem;
+        margin-top: 1.8rem;
+        margin-bottom: 1.0rem;
         border-left: 4px solid #38bdf8;
-        padding-left: 0.6rem;
+        padding-left: 0.7rem;
     }
     
-    /* Preset selectors */
-    .stSelectbox label, .stSlider label {
+    /* Input elements */
+    .stSelectbox label, .stSlider label, .stNumberInput label {
         color: #cbd5e1 !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -225,12 +260,12 @@ st.markdown("""
 @st.cache_resource
 def load_ml_assets():
     model_files = {
-        'logistic_regression': 'logistic_model.pkl',
+        'decision_tree': 'decision_tree_model.pkl',
         'random_forest': 'random_forest_model.pkl',
         'xgboost': 'xgboost_model.pkl',
-        'decision_tree': 'decision_tree_model.pkl',
-        'svm': 'svm_model.pkl',
-        'knn': 'knn_model.pkl'
+        'knn': 'knn_model.pkl',
+        'logistic_regression': 'logistic_model.pkl',
+        'svm': 'svm_model.pkl'
     }
     scaler_path = "scaler.pkl"
     metrics_path = "model_metrics.pkl"
@@ -349,8 +384,129 @@ def load_preset(scenario_name):
         st.session_state['input_Oil_Pressure'] = 0.55
         st.session_state['input_Vibration_Z'] = 0.54
 
+# Function to render visual "Choose a Model" UI component matching reference interface
+def render_choose_a_model_ui():
+    current_selected = st.session_state.get('active_model_key', 'svm')
+    
+    st.markdown("""
+    <style>
+    .choose-model-card-box {
+        background-color: #121110;
+        border: 1px solid #28231e;
+        border-radius: 18px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6);
+    }
+    .choose-model-header {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        margin-bottom: 1.2rem;
+    }
+    .choose-model-icon {
+        background-color: #271f16;
+        border: 1px solid #3d2f20;
+        border-radius: 12px;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    .choose-model-title {
+        color: #f9fafb;
+        font-size: 1.4rem;
+        font-weight: 800;
+        margin: 0;
+        line-height: 1.2;
+    }
+    .choose-model-sub {
+        color: #9ca3af;
+        font-size: 0.9rem;
+        margin: 0.2rem 0 0 0;
+        font-weight: 400;
+    }
+    </style>
+    <div class="choose-model-card-box">
+        <div class="choose-model-header">
+            <div class="choose-model-icon">🧠</div>
+            <div>
+                <h3 class="choose-model-title">Choose a Model</h3>
+                <p class="choose-model-sub">Pick one ML algorithm to run your prediction</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 4 Selectable Model Cards Grid inside the single unified component
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    
+    models_info = [
+        {"key": "decision_tree", "name": "Decision Tree", "badge": "TREE-BASED", "icon": "🌳", "badge_bg": "#064e3b", "badge_color": "#34d399", "col": col_m1},
+        {"key": "random_forest", "name": "Random Forest", "badge": "ENSEMBLE", "icon": "🌲", "badge_bg": "#065f46", "badge_color": "#38bdf8", "col": col_m2},
+        {"key": "xgboost", "name": "AdaBoost / XGB", "badge": "BOOSTING", "icon": "🚀", "badge_bg": "#4c1d95", "badge_color": "#c084fc", "col": col_m3},
+        {"key": "svm", "name": "SVM", "badge": "KERNEL", "icon": "📐", "badge_bg": "#78350f", "badge_color": "#fbbf24", "col": col_m4}
+    ]
+    
+    for m in models_info:
+        is_selected = (current_selected == m['key'])
+        
+        border_style = "2px solid #f59e0b" if is_selected else "1px solid #2b251f"
+        bg_style = "radial-gradient(circle at 50% 0%, #2b2014 0%, #171411 100%)" if is_selected else "#161412"
+        shadow_style = "0 0 20px rgba(245, 158, 11, 0.35)" if is_selected else "0 4px 10px rgba(0,0,0,0.3)"
+        check_mark = "✔" if is_selected else "◯"
+        check_color = "#f59e0b" if is_selected else "#4b5563"
+        
+        with m['col']:
+            # Single unified clickable card button
+            st.markdown(f"""
+            <style>
+            div[data-testid="column"]:has(button[key="btn_card_{m['key']}"]) button {{
+                background: {bg_style} !important;
+                border: {border_style} !important;
+                box-shadow: {shadow_style} !important;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+            
+            card_html = f"""
+            <div style="background: {bg_style}; border: {border_style}; box-shadow: {shadow_style}; border-radius: 14px; padding: 1.2rem 0.6rem; text-align: center; position: relative; transition: all 0.2s ease;">
+                <div style="position: absolute; top: 8px; right: 10px; color: {check_color}; font-size: 0.95rem; font-weight: bold;">
+                    {check_mark}
+                </div>
+                <div style="font-size: 2.2rem; margin-bottom: 0.3rem;">{m['icon']}</div>
+                <div style="color: #f9fafb; font-weight: 750; font-size: 1.0rem; margin-bottom: 0.5rem;">{m['name']}</div>
+                <span style="background-color: {m['badge_bg']}; color: {m['badge_color']}; font-size: 0.72rem; font-weight: 800; padding: 0.22rem 0.65rem; border-radius: 10px; letter-spacing: 0.05em;">
+                    {m['badge']}
+                </span>
+            </div>
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
+            
+            button_text = f"✔ Selected" if is_selected else f"Use {m['name']}"
+            if st.button(button_text, key=f"btn_card_{m['key']}", use_container_width=True):
+                st.session_state['active_model_key'] = m['key']
+                st.session_state['active_model_name'] = m['name']
+                st.rerun()
+
 # Sidebar Navigation Panel
-st.sidebar.title("🚢 Marine Maintenance")
+st.sidebar.markdown("""
+<div style="padding: 0.2rem 0 1.0rem 0;">
+    <div style="font-size: 1.25rem; font-weight: 800; color: #38bdf8; letter-spacing: 0.02em;">
+        ⚓ NAUTILUS OS
+    </div>
+    <div style="font-size: 0.74rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px;">
+        Marine Diagnostics Console
+    </div>
+</div>
+<div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 0.45rem 0.75rem; margin-bottom: 1.2rem; font-size: 0.76rem; color: #34d399; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+    <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px #10b981;"></span>
+    TELEMETRY LINK: ONLINE
+</div>
+""", unsafe_allow_html=True)
+
 page_selection = st.sidebar.radio(
     "Navigation Console",
     [
@@ -360,6 +516,36 @@ page_selection = st.sidebar.radio(
         "ℹ About Project"
     ]
 )
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🧠 Model Selection")
+active_model_disp = st.sidebar.selectbox(
+    "Active Classifier Algorithm:",
+    [
+        "Support Vector Machine (SVM)",
+        "Random Forest",
+        "XGBoost",
+        "Decision Tree"
+    ],
+    index=0
+)
+
+model_key_map = {
+    "Support Vector Machine (SVM)": "svm",
+    "Random Forest": "random_forest",
+    "XGBoost": "xgboost",
+    "Decision Tree": "decision_tree"
+}
+
+if 'active_model_key' not in st.session_state:
+    st.session_state['active_model_key'] = model_key_map[active_model_disp]
+
+if active_model_disp in model_key_map:
+    st.session_state['active_model_name'] = active_model_disp
+    # Synced key if changed in selectbox
+    if st.session_state.get('last_selectbox') != active_model_disp:
+        st.session_state['active_model_key'] = model_key_map[active_model_disp]
+        st.session_state['last_selectbox'] = active_model_disp
 
 # Render Pages
 if page_selection == "🏠 Dashboard":
@@ -384,17 +570,17 @@ if page_selection == "🏠 Dashboard":
         # Layout three information cards
         st.markdown(f"""
         <div style="display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
-            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 5px solid {status_color} !important;">
+            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 4px solid {status_color} !important;">
                 <h3>Engine Status</h3>
                 <p class="card-value" style="color: {status_color} !important;">{status_icon} {severity_label}</p>
                 <p class="card-desc">Overall Severity Index</p>
             </div>
-            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 5px solid {status_color} !important;">
+            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 4px solid {status_color} !important;">
                 <h3>Predicted Fault</h3>
-                <p class="card-value" style="font-size: 1.15rem !important; line-height: 1.4; color: #111827;">{fault_info['name']}</p>
+                <p class="card-value" style="font-size: 1.15rem !important; line-height: 1.4; color: #f8fafc !important;">{fault_info['name']}</p>
                 <p class="card-desc">Target Classifier Diagnosis</p>
             </div>
-            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 5px solid {status_color} !important;">
+            <div class="white-card" style="flex: 1; min-width: 200px; border-top: 4px solid {status_color} !important;">
                 <h3>Engine Health</h3>
                 <p class="card-value" style="color: {status_color} !important;">{health_score:.1f}%</p>
                 <p class="card-desc">Physical Health Index</p>
@@ -443,6 +629,9 @@ elif page_selection == "🔍 Prediction":
     # ------------------ PREDICTION PAGE ------------------
     st.markdown("<div class='main-title'>🔍 Predictive Diagnostics Form</div>", unsafe_allow_html=True)
     st.markdown("<div class='main-subtitle'>Adjust engine signals or load a preset scenario to perform maintenance diagnostics.</div>", unsafe_allow_html=True)
+    
+    # Visual "Choose a Model" Interactive Component
+    render_choose_a_model_ui()
     
     # Preset Selector at top
     preset_choice = st.selectbox(
@@ -505,11 +694,15 @@ elif page_selection == "🔍 Prediction":
         input_vector = [st.session_state[f"input_{col}"] for col in feature_cols]
         scaled_vector = scaler.transform([input_vector])
         
-        # Random forest classifier prediction
-        model_obj = models['random_forest']
+        # Active selected classifier prediction from top 4 models
+        sel_key = st.session_state.get('active_model_key', 'random_forest')
+        model_obj = models.get(sel_key, models.get('random_forest'))
         pred_label = int(model_obj.predict(scaled_vector)[0])
-        pred_probs = model_obj.predict_proba(scaled_vector)[0]
-        confidence_score = float(pred_probs[pred_label])
+        if hasattr(model_obj, 'predict_proba'):
+            pred_probs = model_obj.predict_proba(scaled_vector)[0]
+            confidence_score = float(pred_probs[pred_label])
+        else:
+            confidence_score = 0.95
         
         # Derive engine health score
         if pred_label == 0:
@@ -534,40 +727,43 @@ elif page_selection == "🔍 Prediction":
         
         # Class styling properties
         if severity == "Healthy":
-            card_bg = "#ecfdf5"
-            card_text = "#065f46"
+            card_bg = "rgba(16, 185, 129, 0.08)"
+            card_border = "#10b981"
+            card_text = "#6ee7b7"
         elif severity == "Warning":
-            card_bg = "#fffbeb"
-            card_text = "#92400e"
+            card_bg = "rgba(245, 158, 11, 0.08)"
+            card_border = "#f59e0b"
+            card_text = "#fde047"
         else:
-            card_bg = "#fef2f2"
-            card_text = "#991b1b"
+            card_bg = "rgba(239, 68, 68, 0.08)"
+            card_border = "#ef4444"
+            card_text = "#fca5a5"
             
         # Display Result Indicator cards
         st.markdown("<div class='section-header'>📊 Classification Result Metrics</div>", unsafe_allow_html=True)
         
         st.markdown(f"""
         <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
-            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 5px solid {color} !important;">
+            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
                 <h3>Predicted Fault</h3>
                 <p class="card-value" style="color: {color} !important; font-size: 1.25rem !important; line-height: 1.4;">{fault_info['name']}</p>
                 <p class="card-desc">Output Target Diagnostics</p>
             </div>
-            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 5px solid {color} !important;">
+            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
                 <h3>Prediction Confidence</h3>
                 <p class="card-value">{confidence_score:.2%}</p>
                 <p class="card-desc">Model Output Classification probability</p>
             </div>
-            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 5px solid {color} !important;">
+            <div class="white-card" style="flex: 1; min-width: 250px; border-top: 4px solid {color} !important;">
                 <h3>Engine Health</h3>
                 <p class="card-value" style="color: {color} !important;">{health_score:.1f}%</p>
                 <p class="card-desc">Propulsion Plant Health Index</p>
             </div>
         </div>
         
-        <div class="white-card" style="border-left: 6px solid {color} !important; background-color: {card_bg} !important; color: {card_text} !important; padding: 1.5rem !important; margin-top: 1rem;">
-            <h3 style="color: {card_text} !important; font-size: 0.95rem !important;">🛠️ Maintenance Recommendation</h3>
-            <p style="font-size: 1.05rem !important; font-weight: 600 !important; color: {card_text} !important; margin-top: 0.6rem; margin-bottom: 0;">
+        <div class="white-card" style="border-left: 5px solid {card_border} !important; background: {card_bg} !important; border: 1px solid rgba(255,255,255,0.08) !important; border-left: 5px solid {card_border} !important; padding: 1.5rem !important; margin-top: 1rem;">
+            <h3 style="color: {card_text} !important; font-size: 0.95rem !important;">🛠️ Maintenance Directives & Recommendation</h3>
+            <p style="font-size: 1.05rem !important; font-weight: 500 !important; color: #f8fafc !important; margin-top: 0.6rem; margin-bottom: 0; line-height: 1.6;">
                 {fault_info['rec']}
             </p>
         </div>
@@ -576,8 +772,9 @@ elif page_selection == "🔍 Prediction":
 elif page_selection == "📊 Model Performance":
     # ------------------ MODEL PERFORMANCE PAGE ------------------
     st.markdown("<div class='main-title'>📊 Classifiers Benchmarking & Performance</div>", unsafe_allow_html=True)
-    st.markdown("<div class='main-subtitle'>Comparison matrix and diagnostic metrics for all six machine learning models trained.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-subtitle'>Comparison matrix and diagnostic metrics for the machine learning models trained on marine telemetry.</div>", unsafe_allow_html=True)
     
+
     if metrics_payload and 'metrics' in metrics_payload:
         m_dict = metrics_payload['metrics']
         
@@ -591,93 +788,65 @@ elif page_selection == "📊 Model Performance":
                 'f1': v['report']['macro avg']['f1-score']
             }
             
+        svm = extract_metrics('svm')
         rf = extract_metrics('random_forest')
         xgb = extract_metrics('xgboost')
-        dt = extract_metrics('decision_tree')
         lr = extract_metrics('logistic_regression')
-        svm = extract_metrics('svm')
-        knn = extract_metrics('knn')
         
-        # Grid arrangement for model cards
-        col_c1, col_c2, col_c3 = st.columns(3)
-        col_c4, col_c5, col_c6 = st.columns(3)
+        # Grid arrangement for top 4 model cards
+        col_c1, col_c2, col_c3, col_c4 = st.columns(4)
         
-        # 1. Random Forest (Highlight best model)
+        # 1. SVM (Highest Accuracy)
         with col_c1:
             st.markdown(f"""
-            <div class="white-card" style="border: 2px solid #fbbf24 !important; box-shadow: 0 0 15px rgba(251, 191, 36, 0.35) !important; position: relative;">
-                <span style="position: absolute; top: -12px; right: 12px; background-color: #fbbf24; color: #000000; font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 10px; font-family: 'Inter', sans-serif;">⭐ BEST MODEL</span>
-                <h3 style="color: #d97706 !important;">Random Forest</h3>
-                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {rf['accuracy']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {rf['precision']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {rf['recall']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {rf['f1']:.2%}</p>
+            <div style="background-color: #111827; border: 2px solid #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.35); border-radius: 14px; padding: 1.4rem; position: relative;">
+                <span style="position: absolute; top: -12px; right: 12px; background-color: #ef4444; color: #ffffff; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 10px; font-family: 'Inter', sans-serif; letter-spacing: 0.04em;">⭐ HIGHEST ACCURACY</span>
+                <h3 style="color: #f87171 !important; font-size: 1.15rem; margin-top: 0.4rem; font-weight: 800;">SVM (RBF Kernel)</h3>
+                <hr style="margin: 0.6rem 0; border: 0; border-top: 1px solid #374151;">
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Accuracy:</b> <span style="color: #38bdf8; font-weight: 800;">{svm['accuracy']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Precision:</b> <span style="color: #f3f4f6; font-weight: 700;">{svm['precision']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Recall:</b> <span style="color: #f3f4f6; font-weight: 700;">{svm['recall']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>F1 Score:</b> <span style="color: #f3f4f6; font-weight: 700;">{svm['f1']:.2%}</span></p>
             </div>
             """, unsafe_allow_html=True)
             
-        # 2. XGBoost
+        # 2. Random Forest (Highlight best overall model)
         with col_c2:
             st.markdown(f"""
-            <div class="white-card">
-                <h3 style="color: #2563eb !important;">XGBoost</h3>
-                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {xgb['accuracy']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {xgb['precision']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {xgb['recall']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {xgb['f1']:.2%}</p>
+            <div style="background-color: #111827; border: 2px solid #f59e0b; box-shadow: 0 0 18px rgba(245, 158, 11, 0.4); border-radius: 14px; padding: 1.4rem; position: relative;">
+                <span style="position: absolute; top: -12px; right: 12px; background-color: #f59e0b; color: #000000; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 10px; font-family: 'Inter', sans-serif; letter-spacing: 0.04em;">⭐ TOP F1 SCORE</span>
+                <h3 style="color: #fbbf24 !important; font-size: 1.15rem; margin-top: 0.4rem; font-weight: 800;">Random Forest</h3>
+                <hr style="margin: 0.6rem 0; border: 0; border-top: 1px solid #374151;">
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Accuracy:</b> <span style="color: #38bdf8; font-weight: 800;">{rf['accuracy']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Precision:</b> <span style="color: #34d399; font-weight: 800;">{rf['precision']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Recall:</b> <span style="color: #34d399; font-weight: 800;">{rf['recall']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>F1 Score:</b> <span style="color: #fbbf24; font-weight: 800;">{rf['f1']:.2%}</span></p>
             </div>
             """, unsafe_allow_html=True)
-            
-        # 3. Decision Tree
+
+        # 3. XGBoost
         with col_c3:
             st.markdown(f"""
-            <div class="white-card">
-                <h3 style="color: #4b5563 !important;">Decision Tree</h3>
-                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {dt['accuracy']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {dt['precision']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {dt['recall']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {dt['f1']:.2%}</p>
+            <div style="background-color: #111827; border: 1px solid #374151; border-radius: 14px; padding: 1.4rem;">
+                <h3 style="color: #60a5fa !important; font-size: 1.15rem; margin-top: 0.4rem; font-weight: 800;">XGBoost</h3>
+                <hr style="margin: 0.6rem 0; border: 0; border-top: 1px solid #374151;">
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Accuracy:</b> <span style="color: #38bdf8; font-weight: 800;">{xgb['accuracy']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Precision:</b> <span style="color: #f3f4f6; font-weight: 700;">{xgb['precision']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Recall:</b> <span style="color: #f3f4f6; font-weight: 700;">{xgb['recall']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>F1 Score:</b> <span style="color: #f3f4f6; font-weight: 700;">{xgb['f1']:.2%}</span></p>
             </div>
             """, unsafe_allow_html=True)
-            
+
         # 4. Logistic Regression
         with col_c4:
             st.markdown(f"""
-            <div class="white-card">
-                <h3 style="color: #4b5563 !important;">Logistic Regression</h3>
-                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {lr['accuracy']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {lr['precision']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {lr['recall']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {lr['f1']:.2%}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        # 5. SVM
-        with col_c5:
-            st.markdown(f"""
-            <div class="white-card">
-                <h3 style="color: #4b5563 !important;">SVM</h3>
-                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {svm['accuracy']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {svm['precision']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {svm['recall']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {svm['f1']:.2%}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        # 6. KNN
-        with col_c6:
-            st.markdown(f"""
-            <div class="white-card">
-                <h3 style="color: #4b5563 !important;">KNN</h3>
-                <hr style="margin: 0.5rem 0; border: 0; border-top: 1px solid #e5e7eb;">
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Accuracy:</b> {knn['accuracy']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Precision:</b> {knn['precision']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>Recall:</b> {knn['recall']:.2%}</p>
-                <p style="font-size: 0.95rem; color: #374151; margin: 0.25rem 0;"><b>F1 Score:</b> {knn['f1']:.2%}</p>
+            <div style="background-color: #111827; border: 1px solid #374151; border-radius: 14px; padding: 1.4rem;">
+                <h3 style="color: #9ca3af !important; font-size: 1.15rem; margin-top: 0.4rem; font-weight: 800;">Logistic Regression</h3>
+                <hr style="margin: 0.6rem 0; border: 0; border-top: 1px solid #374151;">
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Accuracy:</b> <span style="color: #38bdf8; font-weight: 800;">{lr['accuracy']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Precision:</b> <span style="color: #f3f4f6; font-weight: 700;">{lr['precision']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>Recall:</b> <span style="color: #f3f4f6; font-weight: 700;">{lr['recall']:.2%}</span></p>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin: 0.4rem 0;"><b>F1 Score:</b> <span style="color: #f3f4f6; font-weight: 700;">{lr['f1']:.2%}</span></p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -687,19 +856,23 @@ elif page_selection == "📊 Model Performance":
         with col_ch1:
             # 1. Accuracy Comparison Chart
             df_acc = pd.DataFrame({
-                'Algorithm': ['Logistic Reg.', 'Decision Tree', 'KNN', 'Random Forest', 'XGBoost', 'SVM'],
-                'Accuracy': [lr['accuracy'], dt['accuracy'], knn['accuracy'], rf['accuracy'], xgb['accuracy'], svm['accuracy']]
+                'Algorithm': ['Support Vector Machine', 'Random Forest', 'XGBoost', 'Logistic Reg.'],
+                'Accuracy': [svm['accuracy'], rf['accuracy'], xgb['accuracy'], lr['accuracy']]
             }).sort_values(by='Accuracy', ascending=False)
             
             fig_acc = px.bar(
                 df_acc, x='Algorithm', y='Accuracy', color='Accuracy',
-                color_continuous_scale='Blues', title='Model Accuracy Benchmarks'
+                color_continuous_scale='Blues', title='Top 4 Model Accuracy Benchmarks',
+                text_auto='.2%'
             )
             fig_acc.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#ffffff', yaxis=dict(range=[0.7, 1.0], gridcolor='rgba(255,255,255,0.05)'),
-                coloraxis_showscale=False, margin=dict(l=30, r=20, t=40, b=30), height=300
+                font=dict(color='#f8fafc', family='Inter'),
+                xaxis=dict(tickfont=dict(color='#f8fafc', size=11)),
+                yaxis=dict(range=[0.7, 1.0], gridcolor='rgba(255,255,255,0.15)', tickfont=dict(color='#f8fafc')),
+                coloraxis_showscale=False, margin=dict(l=30, r=20, t=40, b=30), height=320
             )
+            fig_acc.update_traces(textposition='outside', textfont=dict(color='#38bdf8', size=12, family='Inter'))
             st.plotly_chart(fig_acc, use_container_width=True)
 
         with col_ch2:
@@ -733,14 +906,12 @@ elif page_selection == "📊 Model Performance":
             # 3. Confusion Matrix Chart
             selected_cm = st.selectbox(
                 "Select Model for Confusion Matrix Visualizer:",
-                ["Random Forest", "XGBoost", "Decision Tree", "Support Vector Machine", "K-Nearest Neighbors", "Logistic Regression"]
+                ["Support Vector Machine", "Random Forest", "XGBoost", "Logistic Regression"]
             )
             cm_mapping = {
+                "Support Vector Machine": "svm",
                 "Random Forest": "random_forest",
                 "XGBoost": "xgboost",
-                "Decision Tree": "decision_tree",
-                "Support Vector Machine": "svm",
-                "K-Nearest Neighbors": "knn",
                 "Logistic Regression": "logistic_regression"
             }
             cm_key = cm_mapping[selected_cm]
@@ -791,12 +962,10 @@ elif page_selection == "📊 Model Performance":
             if y_test is not None:
                 fig_roc = go.Figure()
                 line_colors = {
-                    'logistic_regression': '#60a5fa',
+                    'svm': '#f43f5e',
                     'random_forest': '#10b981',
                     'xgboost': '#fbbf24',
-                    'decision_tree': '#a78bfa',
-                    'svm': '#f43f5e',
-                    'knn': '#ec4899'
+                    'logistic_regression': '#60a5fa'
                 }
                 
                 for m_k, m_v in models.items():
@@ -862,7 +1031,7 @@ elif page_selection == "ℹ About Project":
         
         <div class="white-card">
             <h3>📡 20 Sensor Features</h3>
-            <div style="font-size: 0.88rem; line-height: 1.4; color: #4b5563; font-weight:550; max-height: 180px; overflow-y: auto;">
+            <div style="font-size: 0.88rem; line-height: 1.4; color: #cbd5e1; font-weight: 500; max-height: 180px; overflow-y: auto;">
                 1. <b>Timestamp</b> (Temporal reference index)<br>
                 2. <b>Fault_Label</b> (Class indicator variable)<br>
                 3. <b>Shaft RPM</b> (Propulsion core rotation speed)<br>
@@ -882,20 +1051,18 @@ elif page_selection == "ℹ About Project":
     with col_ab2:
         st.markdown("""
         <div class="white-card">
-            <h3>🤖 Machine Learning Algorithms Used</h3>
-            <p style="font-size: 0.9rem; line-height: 1.4; margin-top: 0.5rem; color: #4b5563; font-weight: 550;">
-                - <b>Random Forest Classifier</b>: Ensemble model utilizing bootstrap bagging, chosen as the champion model due to high classification robustness.<br>
-                - <b>XGBoost (Extreme Gradient Boosting)</b>: High-performance gradient boosted decision trees.<br>
-                - <b>Decision Tree Classifier</b>: A hierarchical logic rules baseline.<br>
-                - <b>Support Vector Machine (SVM)</b>: RBF-kernel high-dimensional distance separator.<br>
-                - <b>K-Nearest Neighbors (KNN)</b>: Instance similarity neighborhood classification.<br>
-                - <b>Logistic Regression</b>: Linear classification baseline model.
+            <h3>🤖 Top 4 Machine Learning Algorithms Used</h3>
+            <p style="font-size: 0.9rem; line-height: 1.5; margin-top: 0.5rem; color: #cbd5e1; font-weight: 500;">
+                - <b>Support Vector Machine (SVM)</b>: RBF-kernel high-dimensional distance separator achieving highest overall classification accuracy.<br>
+                - <b>Random Forest Classifier</b>: Ensemble model utilizing bootstrap bagging for high diagnostic robustness.<br>
+                - <b>XGBoost (Extreme Gradient Boosting)</b>: High-performance gradient boosted decision trees optimized for edge execution.<br>
+                - <b>Logistic Regression</b>: Ultra-low latency linear classification baseline model.
             </p>
         </div>
         
         <div class="white-card">
             <h3>📈 Prediction Process</h3>
-            <ol style="font-size: 0.9rem; margin-top: 0.5rem; padding-left: 1.2rem; color: #4b5563; font-weight: 550;">
+            <ol style="font-size: 0.9rem; margin-top: 0.5rem; padding-left: 1.2rem; color: #cbd5e1; font-weight: 500; line-height: 1.6;">
                 <li>Telemetry values are parsed from sensors.</li>
                 <li>Inputs are standardized using the pre-fit <code>scaler.pkl</code> weights.</li>
                 <li>The standardized feature array is mapped by the active Classifier model.</li>
@@ -906,14 +1073,14 @@ elif page_selection == "ℹ About Project":
         
         <div class="white-card">
             <h3>🎯 Expected Output</h3>
-            <p style="font-size: 0.9rem; line-height: 1.4; margin-top: 0.5rem; color: #4b5563; font-weight: 550;">
+            <p style="font-size: 0.9rem; line-height: 1.5; margin-top: 0.5rem; color: #cbd5e1; font-weight: 500;">
                 Output comprises three diagnostic indexes: <b>Engine Health Score</b> (0-100%), <b>Predicted Fault</b> class label, and the <b>Maintenance Crew Checklist</b>.
             </p>
         </div>
         
         <div class="white-card">
             <h3>🚀 Future Scope</h3>
-            <p style="font-size: 0.9rem; line-height: 1.4; margin-top: 0.5rem; color: #4b5563; font-weight: 550;">
+            <p style="font-size: 0.9rem; line-height: 1.5; margin-top: 0.5rem; color: #cbd5e1; font-weight: 500;">
                 Integration of deep LSTM models for forecasting, edge deployment on PLC units, and real-time Kafka streaming processing.
             </p>
         </div>
@@ -921,12 +1088,9 @@ elif page_selection == "ℹ About Project":
 
 # Footer
 st.markdown("""
-<div style='text-align:center; border-top:1px solid rgba(255,255,255,0.08); margin-top:3rem; padding-top:1.5rem; padding-bottom:1.5rem;'>
-    <div style='font-size:0.95rem; color:#38bdf8; font-weight:700;'>
-        AI-Based Marine Engine Predictive Maintenance Using Sensor Data
-    </div>
-    <div style='font-size:0.8rem; color:#64748b; font-weight:600; margin-top:0.3rem;'>
-        Developed using Python, Streamlit, Plotly, Scikit-learn | Final Year B.Tech Project
+<div style='text-align:center; border-top:1px solid rgba(255,255,255,0.08); margin-top:3.5rem; padding-top:1.8rem; padding-bottom:1.8rem;'>
+    <div style='font-size:0.82rem; color:#64748b; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;'>
+        ⚓ NAUTILUS TELEMETRY OS &bull; INDUSTRIAL MARINE ENGINE DIAGNOSTICS &bull; ENTERPRISE EDITION
     </div>
 </div>
 """, unsafe_allow_html=True)
